@@ -1,5 +1,5 @@
 ## User settings
-xcuserdata/
+*/xcuserdata/
 
 ## compatibility with Xcode 8 and earlier (ignoring not required starting Xcode 9)
 *.xcscmblueprint
@@ -25,4 +25,4 @@ DerivedData/
 !*.xcworkspace/contents.xcworkspacedata
 /*.gcno
 *.xcuserstate
-BrotonMapping/BrotonMapping.xcodeproj/project.xcworkspace/xcuserdata/Michael.xcuserdatad/UserInterfaceState.xcuserstate
+*/project.xcworkspace/xcuserdata/*.xcuserdatad/UserInterfaceState.xcuserstate
