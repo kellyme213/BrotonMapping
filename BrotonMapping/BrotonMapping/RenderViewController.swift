@@ -17,7 +17,7 @@ class RenderViewController: NSViewController
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let defaultDevice = MTLCreateSystemDefaultDevice()
+        let defaultDevice = MTLCreateSystemDefaultDevice()!
                 
         renderView = RenderView(frame: self.view.frame, device: defaultDevice)
         

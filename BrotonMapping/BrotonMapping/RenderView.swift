@@ -18,9 +18,12 @@ class RenderView: MTKView
     override init(frame frameRect: CGRect, device: MTLDevice?) {
         super.init(frame: frameRect, device: device)
         
-        renderer = Renderer(metalKitView: self)
+        self.device = device!
         
+        renderer = Renderer(renderView: self)
         self.delegate = renderer
+        renderer.mtkView(self, drawableSizeWillChange: self.drawableSize)
+        
     }
     
     required init(coder: NSCoder) {
