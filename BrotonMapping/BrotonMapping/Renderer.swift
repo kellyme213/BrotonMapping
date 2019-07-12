@@ -20,14 +20,16 @@ class Renderer: NSObject, MTKViewDelegate {
     var renderPassDescriptor: MTLRenderPassDescriptor!
     var renderPipelineDescriptor: MTLRenderPipelineDescriptor!
     var renderPipelineState: MTLRenderPipelineState!
+    var depthStencilState: MTLDepthStencilState!
+    var depthStencilDescriptor: MTLDepthStencilDescriptor!
     var vertexInBuffer: MTLBuffer!
     var uniformBuffer: MTLBuffer!
-    var materialBuffers: [MTLBuffer] = []
     var materialBuffer: MTLBuffer!
+    var lightBuffer: MTLBuffer!
     
     var projectionMatrix: simd_float4x4 = simd_float4x4()
     var modelViewMatrix: simd_float4x4 = simd_float4x4()
-    var cameraPosition: SIMD3<Float> = SIMD3<Float>(0, 0, -1)
+    var cameraPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 1)
     
     var triangles: [Triangle] = []
     var materialArray: [Material] = []
@@ -45,7 +47,13 @@ class Renderer: NSObject, MTKViewDelegate {
         let m = Material(color: SIMD4<Float>(1.0, 1.0, 0.0, 1.0), diffuse: 0.0)
         let t = createTriangleFromPoints(a: v1, b: v2, c: v3, m: m)
         
-        triangles.append(t)
+        //triangles.append(t)
+        
+        let m2 = Material(color: SIMD4<Float>(1.0, 0.0, 0.0, 1.0), diffuse: 0.0)
+
+
+        createRing(radius: 0.2, subdivisions: 50, height: 0.3, thiccness: 0.05, material: m2)
+        
         fillTriangleBuffer()
     }
     
@@ -59,8 +67,51 @@ class Renderer: NSObject, MTKViewDelegate {
         renderPipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
         renderPipelineDescriptor.vertexFunction = vertexShader
         renderPipelineDescriptor.fragmentFunction = fragmentShader
+        renderPipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
         
         renderPipelineState = try! device.makeRenderPipelineState(descriptor: renderPipelineDescriptor)
+    }
+    
+    func createRing(radius: Float, subdivisions: Int, height: Float, thiccness: Float, material: Material)
+    {
+        
+        //let m3 = Material(color: SIMD4<Float>(1.0, 1.0, 0.0, 1.0), diffuse: 0.0)
+        //let m4 = Material(color: SIMD4<Float>(1.0, 0.0, 1.0, 1.0), diffuse: 0.0)
+        
+        for n in 0..<subdivisions
+        {
+            let x = cos(2.0 * .pi * Float(n) / Float(subdivisions))
+            let y = sin(2.0 * .pi * Float(n) / Float(subdivisions))
+            
+            let x1 = cos(2.0 * .pi * Float(n + 1) / Float(subdivisions))
+            let y1 = sin(2.0 * .pi * Float(n + 1) / Float(subdivisions))
+            
+            let r1 = radius
+            let r2 = radius + thiccness
+            
+            let p1 = SIMD3<Float>(r1 * x, r1 * y, 0.0)
+            let p2 = SIMD3<Float>(r1 * x, r1 * y, height)
+            let p3 = SIMD3<Float>(r1 * x1, r1 * y1, 0.0)
+            let p4 = SIMD3<Float>(r1 * x1, r1 * y1, height)
+            
+            let p5 = SIMD3<Float>(r2 * x, r2 * y, 0.0)
+            let p6 = SIMD3<Float>(r2 * x, r2 * y, height)
+            let p7 = SIMD3<Float>(r2 * x1, r2 * y1, 0.0)
+            let p8 = SIMD3<Float>(r2 * x1, r2 * y1, height)
+
+            triangles.append(createTriangleFromPoints(a: p1, b: p3, c: p2, m: material))
+            triangles.append(createTriangleFromPoints(a: p3, b: p4, c: p2, m: material))
+            
+            triangles.append(createTriangleFromPoints(a: p7, b: p5, c: p8, m: material))
+            triangles.append(createTriangleFromPoints(a: p5, b: p6, c: p8, m: material))
+            
+            
+            triangles.append(createTriangleFromPoints(a: p2, b: p4, c: p6, m: material))
+            triangles.append(createTriangleFromPoints(a: p4, b: p8, c: p6, m: material))
+            
+            triangles.append(createTriangleFromPoints(a: p5, b: p7, c: p1, m: material))
+            triangles.append(createTriangleFromPoints(a: p7, b: p3, c: p1, m: material))
+        }
     }
     
     func setup()
@@ -71,6 +122,7 @@ class Renderer: NSObject, MTKViewDelegate {
         createCommandBuffer()
         createRenderPassDescriptor(texture: renderView.currentDrawable!.texture)
         createShaders()
+        createDepthStencilDescriptor()
     }
     
     func createCommandBuffer()
@@ -84,6 +136,21 @@ class Renderer: NSObject, MTKViewDelegate {
         renderPassDescriptor.colorAttachments[0].texture = texture
         renderPassDescriptor.colorAttachments[0].loadAction = .clear
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+        let textureDescriptor = MTLTextureDescriptor()
+        textureDescriptor.usage = .renderTarget
+        textureDescriptor.height = texture.height
+        textureDescriptor.width = texture.width
+        textureDescriptor.pixelFormat = .depth32Float
+        textureDescriptor.storageMode = .private
+        renderPassDescriptor.depthAttachment.texture = device.makeTexture(descriptor: textureDescriptor)
+    }
+    
+    func createDepthStencilDescriptor()
+    {
+        depthStencilDescriptor = MTLDepthStencilDescriptor()
+        depthStencilDescriptor.depthCompareFunction = .less
+        depthStencilDescriptor.isDepthWriteEnabled = true
+        depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
     }
     
     func fillBuffer<T>(data: [T]) -> MTLBuffer!
@@ -144,28 +211,38 @@ class Renderer: NSObject, MTKViewDelegate {
         uniformBuffer = fillBuffer(data: list2)
     }
     
+    func fillLightBuffer()
+    {
+        let light = Light(position: SIMD3<Float>(1.0, 1.0, 0.0), direction: SIMD3<Float>(-1.0, -1.0, 0.0), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0))
+        
+        lightBuffer = fillBuffer(data: [light])
+    }
+    
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         
         let aspect = Float(size.width) / Float(size.height)
         projectionMatrix = matrix_perspective_right_hand(fovyRadians: radians_from_degrees(65), aspectRatio:aspect, nearZ: 0.1, farZ: 100.0)
-        modelViewMatrix = look_at_matrix(from: cameraPosition, to: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
+        modelViewMatrix = look_at_matrix(eye: cameraPosition, target: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
     }
     
     func draw(in view: MTKView) {
 
-        modelViewMatrix = look_at_matrix(from: cameraPosition, to: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
+        modelViewMatrix = look_at_matrix(eye: cameraPosition, target: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
         
         fillUniformBuffer()
+        fillLightBuffer()
         //fillTriangleBuffer()
         createRenderPassDescriptor(texture: renderView.currentDrawable!.texture)
         createCommandBuffer()
 
         let commandEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
         commandEncoder.setRenderPipelineState(renderPipelineState)
+        commandEncoder.setDepthStencilState(depthStencilState)
         commandEncoder.setVertexBuffer(vertexInBuffer, offset: 0, index: 0)
         commandEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
         
         commandEncoder.setFragmentBuffer(materialBuffer, offset: 0, index: 0)
+        commandEncoder.setFragmentBuffer(lightBuffer, offset: 0, index: 8)
         commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: triangles.count * 3)
         commandEncoder.endEncoding()
         
@@ -174,7 +251,30 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func keyDown(with theEvent: NSEvent) {
-
+        if (theEvent.keyCode == KEY_W)
+        {
+            cameraPosition += SIMD3<Float>(0.0, 0.0, 0.05);
+        }
+        if (theEvent.keyCode == KEY_S)
+        {
+            cameraPosition -= SIMD3<Float>(0.0, 0.0, 0.05);
+        }
+        if (theEvent.keyCode == KEY_A)
+        {
+            cameraPosition += SIMD3<Float>(0.05, 0.0, 0.0);
+        }
+        if (theEvent.keyCode == KEY_D)
+        {
+            cameraPosition -= SIMD3<Float>(0.05, 0.0, 0.0);
+        }
+        if (theEvent.keyCode == KEY_Q)
+        {
+            cameraPosition += SIMD3<Float>(0.0, 0.05, 0.0);
+        }
+        if (theEvent.keyCode == KEY_E)
+        {
+            cameraPosition -= SIMD3<Float>(0.0, 0.05, 0.0);
+        }
     }
     
     func keyUp(with theEvent: NSEvent) {

@@ -49,6 +49,12 @@ struct Uniforms
     var projectionMatrix: simd_float4x4
 }
 
+struct Light
+{
+    var position: SIMD3<Float>
+    var direction: SIMD3<Float>
+    var color: SIMD4<Float>
+}
 
 
 
@@ -80,24 +86,44 @@ func matrix_perspective_right_hand(fovyRadians fovy: Float, aspectRatio: Float, 
                                          vector_float4( 0, ys, 0,   0),
                                          vector_float4( 0,  0, zs, -1),
                                          vector_float4( 0,  0, zs * nearZ, 0)))
+    
 }
 
 func radians_from_degrees(_ degrees: Float) -> Float {
     return (degrees / 180) * .pi
 }
 
-func look_at_matrix(from: SIMD3<Float>, to: SIMD3<Float>, up: SIMD3<Float>) -> matrix_float4x4
+func new_look_at(eye: SIMD3<Float>, target: SIMD3<Float>) -> matrix_float4x4
+{
+    let t = matrix4x4_translation(-eye.x, -eye.y, -eye.z)
+    let up = SIMD3<Float>(0, 1, 0)
+    let et = target - eye
+    
+    let f = normalize(eye - target)
+    let l = normalize(cross(up, f))
+    let u = normalize(cross(f, l))
+    let rot = matrix_float4x4.init(columns: (SIMD4<Float>(l, 0.0),
+                                             SIMD4<Float>(u, 0.0),
+                                             SIMD4<Float>(f, 0.0),
+                                             SIMD4<Float>(0.0, 0.0, 0.0, 1.0))).inverse
+    
+    let r = matrix4x4_rotation(radians: dot(et, up) * 3.14, axis: normalize(cross(up, et)))
+    return (rot * t)
+}
+
+func look_at_matrix(eye: SIMD3<Float>, target: SIMD3<Float>, up: SIMD3<Float>) -> matrix_float4x4
 {
     
-    let forward = normalize(from - to)
-    let right = cross(normalize(up), forward)
-    let up = cross(forward, right)
+    return new_look_at(eye: eye, target: target)
     
-    return matrix_float4x4.init(columns: (vector_float4(right, 0.0),
-                                          vector_float4(up, 0.0),
-                                          vector_float4(forward, 0.0),
-                                          vector_float4(from, 1.0)
-    ))
+    let forward = normalize(target - eye)
+    let newUp = normalize(up)//cross(forward, side))
+    let side = normalize(cross(forward, newUp))//up, forward))
+    
+    return matrix_float4x4.init(rows: [vector_float4(side, -dot(side, eye)),
+                                          vector_float4(newUp, -dot(newUp, eye)),
+                                          vector_float4(-forward, dot(forward, eye)),
+                                          vector_float4(0.0, 0.0, 0.0, 1.0)])
 }
 
 func createTriangleFromPoints(a: SIMD3<Float>, b: SIMD3<Float>, c: SIMD3<Float>, m: Material) -> Triangle

@@ -19,7 +19,9 @@ class RenderView: MTKView
         super.init(frame: frameRect, device: device)
         
         self.device = device!
-        
+                
+        self.depthStencilPixelFormat = .depth32Float
+
         renderer = Renderer(renderView: self)
         self.delegate = renderer
         renderer.mtkView(self, drawableSizeWillChange: self.drawableSize)

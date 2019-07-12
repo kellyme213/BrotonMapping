@@ -13,10 +13,18 @@ using namespace metal;
 
 typedef struct
 {
-    float4 position [[position]];
+    float4 position;
     float3 normal;
     int materialNum;
-} Vertex;
+} VertexIn;
+
+typedef struct
+{
+    float4 transformedPosition [[position]];
+    float4 absolutePosition;
+    float3 normal;
+    int materialNum;
+} VertexOut;
 
 typedef struct
 {
@@ -30,23 +38,38 @@ typedef struct
     float diffuse;
 } Material;
 
+typedef struct
+{
+    float3 position;
+    float3 direction;
+    float4 color;
+} Light;
 
-vertex Vertex vertexShader(const device Vertex* vertArray [[buffer(0)]],
+
+vertex VertexOut vertexShader(const device VertexIn* vertArray [[buffer(0)]],
                               const device Uniforms& uniforms [[buffer(1)]],
                               uint vid [[vertex_id]])
 {
     matrix_float4x4 mvp = uniforms.projectionMatrix * uniforms.modelViewMatrix;
-    Vertex v;
-    v.position = mvp * vertArray[vid].position;
-    v.normal = (mvp * float4(vertArray[vid].normal, 0.0)).xyz;
+    VertexOut v;
+    v.transformedPosition = mvp * vertArray[vid].position;
+    v.absolutePosition = vertArray[vid].position;
+    v.normal = vertArray[vid].normal;
     v.materialNum = vertArray[vid].materialNum;
     return v;
 }
 
-fragment float4 fragmentShader(Vertex in [[stage_in]],
-                               const device array<Material, 8>& materials [[buffer(0)]])
+fragment float4 fragmentShader(VertexOut in [[stage_in]],
+                               const device array<Material, 8>& materials [[buffer(0)]],
+                               const device Light& light [[buffer(8)]])
 {
-    return materials[in.materialNum].color;
+    
+    float3 dirToLight = in.absolutePosition.xyz - light.position;
+    float3 lightNorm = normalize(dirToLight);
+    float4 materialColor = materials[in.materialNum].color;
+    float4 finalColor = max(0.0f, dot(in.normal, light.direction)) * light.color * materialColor + float4(0.2, 0.2, 0.2, 0.0);
+    
+    return finalColor;
 }
 
 
