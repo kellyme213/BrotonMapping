@@ -30,14 +30,19 @@ class Renderer: NSObject, MTKViewDelegate {
     
     var projectionMatrix: simd_float4x4 = simd_float4x4()
     var modelViewMatrix: simd_float4x4 = simd_float4x4()
-    var cameraPosition: SIMD3<Float> = SIMD3<Float>(0, 0.5, -0.5)
+    var cameraPosition: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, -1.0)
+    var cameraDirection: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 1.0)
     
     var triangles: [Triangle] = []
     var materialArray: [Material] = []
+    var lights: [Light] = []
     
-    var v1 = SIMD3<Float>(0.5, 0.0, 0.0)
-    var v2 = SIMD3<Float>(-0.5, 0.0, 0.0)
-    var v3 = SIMD3<Float>(0.0, 0.5, 0.0)
+    let defaultCameraPosition: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, -1.0)
+    let defaultCameraDirection: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 1.0)
+    
+    var v1 = SIMD3<Float>(0.6, -0.2, 0.0)
+    var v2 = SIMD3<Float>(-0.6, -0.2, 0.0)
+    var v3 = SIMD3<Float>(0.0, 0.2, 0.0)
     
     init?(renderView: RenderView) {
         super.init()
@@ -46,11 +51,12 @@ class Renderer: NSObject, MTKViewDelegate {
         setup()
         
         
-        let m = Material(kDiffuse: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), kSpecular: SIMD4<Float>(1.0, 1.0, 1.0, 1.0))
-        
+        let m = Material()
+                
         createRing(radius: 0.2, subdivisions: 100, height: 0.3, thiccness: 0.05, material: m)
         
         fillTriangleBuffer()
+        fillLightBuffer()
     }
     
     func createShaders()
@@ -264,7 +270,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         
         
-        let fragmentUniforms = FragmentUniforms(cameraPosition: cameraPosition, cameraDirection: -normalize(cameraPosition), numLights: 2, ambientLight: SIMD4<Float>(0.1, 0.1, 0.1, 0.0))
+        let fragmentUniforms = FragmentUniforms(cameraPosition: cameraPosition, cameraDirection: cameraDirection, numLights: Int8(lights.count), ambientLight: SIMD4<Float>(0.1, 0.1, 0.1, 0.0))
         
         fillBuffer(buffer: &fragmentUniformBuffer, data: [fragmentUniforms])
     }
@@ -275,8 +281,13 @@ class Renderer: NSObject, MTKViewDelegate {
         
         let light2 = Light(position: SIMD3<Float>(0.0, 0.3, -1.0), direction: SIMD3<Float>(1.0, 1.0, 0.0), color: SIMD4<Float>(0.0, 0.8, 1.0, 1.0), coneAngle: 0.1, lightType: DIRECTIONAL_LIGHT)
         
-        let lights = [light1, light2]
-        assert(lights.count < MAX_LIGHTS)
+        let light3 = Light(position: SIMD3<Float>(0.0, 0.0, -1.0), direction: SIMD3<Float>(0.0, 0.0, 1.0), color: SIMD4<Float>(0.2, 0.0, 0.2, 1.0), coneAngle: 0.1, lightType: DIRECTIONAL_LIGHT)
+        
+        lights.append(light1)
+        lights.append(light2)
+        lights.append(light3)
+
+        assert(Int8(lights.count) < MAX_LIGHTS)
         
         fillBuffer(buffer: &lightBuffer, data: lights, size: MemoryLayout<Light>.stride * MAX_LIGHTS)
     }
@@ -285,13 +296,12 @@ class Renderer: NSObject, MTKViewDelegate {
         
         let aspect = Float(size.width) / Float(size.height)
         projectionMatrix = matrix_perspective_right_hand(fovyRadians: radians_from_degrees(65), aspectRatio:aspect, nearZ: 0.1, farZ: 100.0)
-        modelViewMatrix = look_at_matrix(eye: cameraPosition, target: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
+        updateUniformMatrices()
     }
     
     func draw(in view: MTKView) {
         
         fillUniformBuffer()
-        fillLightBuffer()
         createRenderPassDescriptor(texture: renderView.currentDrawable!.texture)
         createCommandBuffer()
 
@@ -313,37 +323,120 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func keyDown(with theEvent: NSEvent) {
+        
+        let z = normalize(cameraDirection)
+        let x = normalize(cross(SIMD3<Float>(0, 1, 0), z))
+        let y = normalize(cross(z, x))
+        let speed: Float = 0.05
+        
         if (theEvent.keyCode == KEY_W)
         {
-            cameraPosition += SIMD3<Float>(0.0, 0.0, 0.05);
+            cameraPosition += speed * z;
         }
-        if (theEvent.keyCode == KEY_S)
+        else if (theEvent.keyCode == KEY_S)
         {
-            cameraPosition -= SIMD3<Float>(0.0, 0.0, 0.05);
+            cameraPosition -= speed * z;
         }
-        if (theEvent.keyCode == KEY_A)
+        else if (theEvent.keyCode == KEY_A)
         {
-            cameraPosition += SIMD3<Float>(0.05, 0.0, 0.0);
+            cameraPosition += speed * x;
         }
-        if (theEvent.keyCode == KEY_D)
+        else if (theEvent.keyCode == KEY_D)
         {
-            cameraPosition -= SIMD3<Float>(0.05, 0.0, 0.0);
+            cameraPosition -= speed * x;
         }
-        if (theEvent.keyCode == KEY_Q)
+        else if (theEvent.keyCode == KEY_Q)
         {
-            cameraPosition += SIMD3<Float>(0.0, 0.05, 0.0);
+            cameraPosition += speed * y;
         }
-        if (theEvent.keyCode == KEY_E)
+        else if (theEvent.keyCode == KEY_E)
         {
-            cameraPosition -= SIMD3<Float>(0.0, 0.05, 0.0);
+            cameraPosition -= speed * y;
+        }
+        else if (theEvent.keyCode == KEY_SPACE)
+        {
+            cameraPosition = defaultCameraPosition
+            cameraDirection = defaultCameraDirection
         }
         
-        modelViewMatrix = look_at_matrix(eye: cameraPosition, target: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
-        
+        updateUniformMatrices()
+    }
+    
+    func updateUniformMatrices()
+    {
+        modelViewMatrix = look_at_matrix(eye: cameraPosition, target: cameraPosition + cameraDirection)
         fillUniformBuffer()
     }
+    
+    
+    var mousePress = CGPoint(x: 0, y: 0)
+    var oldCameraDirection = SIMD3<Float>(0, 0, 0)
+    var cachedCameraDirction = SIMD3<Float>(0, 0, 0)
     
     func keyUp(with theEvent: NSEvent) {
         
     }
+    
+    func mouseUp(with event: NSEvent) {
+        
+    }
+    
+    func mouseDown(with event: NSEvent) {
+        mousePress = event.locationInWindow
+        
+        var x = mousePress.x - (event.window!.frame.width / 2.0)
+        var y = -(mousePress.y - (event.window!.frame.height / 2.0))
+        
+        x = x / event.window!.frame.width
+        y = y / event.window!.frame.height
+
+        oldCameraDirection = createArcballCameraDirection(x: Float(x), y: Float(y))
+        cachedCameraDirction = cameraDirection
+    }
+    
+    //https://braintrekking.wordpress.com/2012/08/21/tutorial-of-arcball-without-quaternions/
+    func createArcballCameraDirection(x: Float, y: Float) -> SIMD3<Float>
+    {
+        var newCameraDirection = SIMD3<Float>(0,0,0)
+        let d = x * x + y * y
+        let ballRadius: Float = 1.0
+        
+        if (d > ballRadius * ballRadius)
+        {
+            newCameraDirection = SIMD3<Float>(x, y, 0.0)
+        }
+        else
+        {
+            newCameraDirection = SIMD3<Float>(x, y, Float(sqrt(ballRadius * ballRadius - d)))
+        }
+        
+        if (dot(newCameraDirection, newCameraDirection) > 0.001)
+        {
+            newCameraDirection = normalize(newCameraDirection)
+        }
+        else
+        {
+            print("BAD")
+        }
+        return newCameraDirection
+    }
+    
+    func mouseDragged(with event: NSEvent) {
+        
+        let x = event.locationInWindow.x - (event.window!.frame.width / 2.0)
+        let y = -(event.locationInWindow.y - (event.window!.frame.height / 2.0))
+        
+        let dx = x / event.window!.frame.width
+        let dy = y / event.window!.frame.height
+        
+        let newCameraDirection = createArcballCameraDirection(x: Float(dx), y: Float(dy))
+        
+        let rotationMatrix = matrix4x4_rotation(radians: -acos(dot(oldCameraDirection, newCameraDirection)), axis: cross(oldCameraDirection, newCameraDirection))
+        
+        let cam4 = (rotationMatrix * SIMD4<Float>(cachedCameraDirction, 0.0))
+
+        cameraDirection = normalize(SIMD3<Float>(cam4.x, cam4.y, cam4.z))
+        updateUniformMatrices()
+    }
+    
 }

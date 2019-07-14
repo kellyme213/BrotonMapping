@@ -103,18 +103,12 @@ fragment float4 fragmentShader(VertexOut in [[stage_in]],
 
         
         float diffuseConstant = max(0.0f, -dot(normalize(in.normal), normalize(light.direction)));
-        float specularConstant = pow(max(0.0f, dot(reflect(-lightNorm, in.normal), -fragmentUniforms.cameraDirection)), shininess);
+        float specularConstant = pow(max(0.0f, dot(reflect(-lightNorm, normalize(in.normal)), fragmentUniforms.cameraDirection)), shininess);
         
         float spotlightConstant = isSpotLight * shouldBeLitBySpotLight;
         float directionalLightConstant = isDirectionalLight;
         
         float lightConstant = spotlightConstant + directionalLightConstant;
-        
-        
-        //float4 spotLightColor = spotlightConstant * light.color;
-        //float4 directionalColor = directionalLightConstant * light.color;
-
-        //diffuseLightColor += ((directionalColor + spotLightColor));
         
         
         diffuseLightColor += lightConstant * diffuseConstant * light.color;

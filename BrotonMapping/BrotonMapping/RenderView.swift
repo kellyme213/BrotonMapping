@@ -43,4 +43,16 @@ class RenderView: MTKView
     override func keyUp(with theEvent: NSEvent) {
         renderer.keyUp(with: theEvent)
     }
+    
+    override func mouseUp(with event: NSEvent) {
+        renderer.mouseUp(with: event)
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        renderer.mouseDown(with: event)
+    }
+    
+    override func mouseDragged(with event: NSEvent) {
+        renderer.mouseDragged(with: event)
+    }
 }

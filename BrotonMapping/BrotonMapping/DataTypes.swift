@@ -45,9 +45,9 @@ struct Material: Equatable
     }
     
     var kAmbient: SIMD4<Float>  = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
-    var kDiffuse: SIMD4<Float>  = SIMD4<Float>(0.0, 0.0, 0.0, 1.0)
+    var kDiffuse: SIMD4<Float>  = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
     var kSpecular: SIMD4<Float> = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
-    var shininess: Float = 10.0
+    var shininess: Float = 100.0
     var diffuse: Float = 0.0
 }
 
@@ -109,10 +109,9 @@ func radians_from_degrees(_ degrees: Float) -> Float {
     return (degrees / 180) * .pi
 }
 
-func new_look_at(eye: SIMD3<Float>, target: SIMD3<Float>) -> matrix_float4x4
+func look_at_matrix(eye: SIMD3<Float>, target: SIMD3<Float>, up: SIMD3<Float> = SIMD3<Float>(0, 1, 0)) -> matrix_float4x4
 {
     let t = matrix4x4_translation(-eye.x, -eye.y, -eye.z)
-    let up = SIMD3<Float>(0, 1, 0)
     
     let f = normalize(eye - target)
     let l = normalize(cross(up, f))
@@ -122,21 +121,6 @@ func new_look_at(eye: SIMD3<Float>, target: SIMD3<Float>) -> matrix_float4x4
                                              SIMD4<Float>(f, 0.0),
                                              SIMD4<Float>(0.0, 0.0, 0.0, 1.0))).transpose
     return (rot * t)
-}
-
-func look_at_matrix(eye: SIMD3<Float>, target: SIMD3<Float>, up: SIMD3<Float>) -> matrix_float4x4
-{
-    
-    return new_look_at(eye: eye, target: target)
-    
-    let forward = normalize(target - eye)
-    let newUp = normalize(up)//cross(forward, side))
-    let side = normalize(cross(forward, newUp))//up, forward))
-    
-    return matrix_float4x4.init(rows: [vector_float4(side, -dot(side, eye)),
-                                          vector_float4(newUp, -dot(newUp, eye)),
-                                          vector_float4(-forward, dot(forward, eye)),
-                                          vector_float4(0.0, 0.0, 0.0, 1.0)])
 }
 
 func createTriangleFromPoints(a: SIMD3<Float>, b: SIMD3<Float>, c: SIMD3<Float>, m: Material) -> Triangle
