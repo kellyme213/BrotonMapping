@@ -14,6 +14,8 @@ import MetalKit
 
 let DIRECTIONAL_LIGHT: Int8 = 0
 let SPOT_LIGHT: Int8 = 1
+let MAX_MATERIALS: Int = 8
+let MAX_LIGHTS: Int = 8
 
 struct Vertex
 {
@@ -35,15 +37,18 @@ struct Material: Equatable
 {
     static func == (lhs: Material, rhs: Material) -> Bool
     {
-        return lhs.color == rhs.color && lhs.diffuse == rhs.diffuse
+        return lhs.kAmbient == rhs.kAmbient &&
+                lhs.kDiffuse == rhs.kDiffuse &&
+                lhs.kSpecular == rhs.kSpecular &&
+                lhs.shininess == rhs.shininess &&
+                lhs.diffuse == rhs.diffuse
     }
-    var color: SIMD4<Float>
-    var diffuse: Float
-}
-
-func compareMaterials(lhs: Material, rhs: Material) -> Bool
-{
-    return lhs.color == rhs.color// && lhs.diffuse == rhs.diffuse
+    
+    var kAmbient: SIMD4<Float>  = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
+    var kDiffuse: SIMD4<Float>  = SIMD4<Float>(0.0, 0.0, 0.0, 1.0)
+    var kSpecular: SIMD4<Float> = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
+    var shininess: Float = 10.0
+    var diffuse: Float = 0.0
 }
 
 struct Uniforms
@@ -61,7 +66,13 @@ struct Light
     var lightType: Int8
 }
 
-
+struct FragmentUniforms
+{
+    var cameraPosition: SIMD3<Float>
+    var cameraDirection: SIMD3<Float>
+    var numLights: Int8
+    var ambientLight: SIMD4<Float>
+}
 
 // Generic matrix math utility functions
 func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {

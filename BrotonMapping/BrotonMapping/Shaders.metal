@@ -37,7 +37,10 @@ typedef struct
 
 typedef struct
 {
-    float4 color;
+    float4 kAmbient;
+    float4 kDiffuse;
+    float4 kSpecular;
+    float shininess;
     float diffuse;
 } Material;
 
@@ -49,6 +52,14 @@ typedef struct
     float coneAngle;
     int8_t lightType;
 } Light;
+
+typedef struct
+{
+    float3 cameraPosition;
+    float3 cameraDirection;
+    int8_t numLights;
+    float4 ambientLight;
+} FragmentUniforms;
 
 
 vertex VertexOut vertexShader(const device VertexIn* vertArray [[buffer(0)]],
@@ -65,29 +76,56 @@ vertex VertexOut vertexShader(const device VertexIn* vertArray [[buffer(0)]],
 }
 
 fragment float4 fragmentShader(VertexOut in [[stage_in]],
-                               const device array<Material, 8>& materials [[buffer(0)]],
-                               const device Light& light [[buffer(8)]])
+                               const device FragmentUniforms& fragmentUniforms [[buffer(0)]],
+                               const device array<Material, 8>& materials [[buffer(1)]],
+                               const device array<Light, 8>& lights [[buffer(9)]])
 {
-    float3 lightToPoint = in.absolutePosition.xyz - light.position;
-    float3 lightNorm = normalize(lightToPoint);
+    float4 diffuseMaterialColor = materials[in.materialNum].kDiffuse;
+    float4 specularMaterialColor = materials[in.materialNum].kSpecular;
+    float4 ambientMaterialColor = materials[in.materialNum].kAmbient;
+    float shininess = materials[in.materialNum].shininess;
     
-    float degree = dot(lightNorm, normalize(light.direction));
+    float4 diffuseLightColor = float4(0.0, 0.0, 0.0, 1.0);
+    float4 specularLightColor = float4(0.0, 0.0, 0.0, 1.0);
+    for (int x = 0; x < fragmentUniforms.numLights; x++)
+    {
     
-    bool shouldBeLitBySpotLight = (degree >= 0.0f) && ((1.0f - degree) <= (light.coneAngle));
-    
-    bool isSpotLight = (light.lightType == SPOT_LIGHT);
-    bool isDirectionalLight = (light.lightType == DIRECTIONAL_LIGHT);
+        Light light = lights[x];
+        float3 lightToPoint = in.absolutePosition.xyz - light.position;
+        float3 lightNorm = normalize(lightToPoint);
+        
+        float degree = dot(lightNorm, normalize(light.direction));
+        
+        bool shouldBeLitBySpotLight = (degree >= 0.0f) && ((1.0f - degree) <= (light.coneAngle));
+        
+        bool isSpotLight = (light.lightType == SPOT_LIGHT);
+        bool isDirectionalLight = (light.lightType == DIRECTIONAL_LIGHT);
 
-    float spotlightConstant = isSpotLight * shouldBeLitBySpotLight * max(0.0f, -dot(normalize(in.normal), normalize(light.direction)));
-    float directionalLightConstant = isDirectionalLight * max(0.0f, -dot(normalize(in.normal), normalize(light.direction)));
-    
-    float4 ambientLight = float4(0.1f, 0.1f, 0.1f, 0.0f);
-    float4 spotLightColor = spotlightConstant * light.color;
-    float4 directionalColor = directionalLightConstant * light.color;
+        
+        float diffuseConstant = max(0.0f, -dot(normalize(in.normal), normalize(light.direction)));
+        float specularConstant = pow(max(0.0f, dot(reflect(-lightNorm, in.normal), -fragmentUniforms.cameraDirection)), shininess);
+        
+        float spotlightConstant = isSpotLight * shouldBeLitBySpotLight;
+        float directionalLightConstant = isDirectionalLight;
+        
+        float lightConstant = spotlightConstant + directionalLightConstant;
+        
+        
+        //float4 spotLightColor = spotlightConstant * light.color;
+        //float4 directionalColor = directionalLightConstant * light.color;
 
-    float4 materialColor = materials[in.materialNum].color;
-    float4 finalColor = ((directionalColor + spotLightColor) * materialColor) + ambientLight;
+        //diffuseLightColor += ((directionalColor + spotLightColor));
+        
+        
+        diffuseLightColor += lightConstant * diffuseConstant * light.color;
+        specularLightColor += lightConstant * specularConstant * light.color;
+    }
     
+
+
+    float4 finalColor = diffuseLightColor * diffuseMaterialColor +
+                        specularLightColor * specularMaterialColor +
+                        fragmentUniforms.ambientLight * ambientMaterialColor;
     return finalColor;
 }
 

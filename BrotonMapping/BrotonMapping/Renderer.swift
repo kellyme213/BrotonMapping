@@ -26,6 +26,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var uniformBuffer: MTLBuffer!
     var materialBuffer: MTLBuffer!
     var lightBuffer: MTLBuffer!
+    var fragmentUniformBuffer: MTLBuffer!
     
     var projectionMatrix: simd_float4x4 = simd_float4x4()
     var modelViewMatrix: simd_float4x4 = simd_float4x4()
@@ -45,7 +46,7 @@ class Renderer: NSObject, MTKViewDelegate {
         setup()
         
         
-        let m = Material(color: SIMD4<Float>(1.0, 0.0, 0.0, 1.0), diffuse: 0.0)
+        let m = Material(kDiffuse: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), kSpecular: SIMD4<Float>(1.0, 1.0, 1.0, 1.0))
         
         createRing(radius: 0.2, subdivisions: 100, height: 0.3, thiccness: 0.05, material: m)
         
@@ -178,9 +179,35 @@ class Renderer: NSObject, MTKViewDelegate {
         depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
     }
     
-    func fillBuffer<T>(data: [T]) -> MTLBuffer!
+    func fillBuffer<T>(buffer: inout MTLBuffer?, data: [T], size: Int = 0)
     {
-        return device.makeBuffer(bytes: data, length: MemoryLayout<T>.stride * data.count, options: .storageModeShared)!
+        if (buffer == nil)
+        {
+            buffer = createBuffer(data: data, size: size)
+        }
+        else
+        {
+            var bufferSize: Int = size
+            
+            if (size == 0)
+            {
+                bufferSize = MemoryLayout<T>.stride * data.count
+            }
+            
+            memcpy(buffer!.contents(), data, bufferSize)
+        }
+    }
+    
+    func createBuffer<T>(data: [T], size: Int = 0) -> MTLBuffer!
+    {
+        var bufferSize: Int = size
+        
+        if (size == 0)
+        {
+            bufferSize = MemoryLayout<T>.stride * data.count
+        }
+        
+        return device.makeBuffer(bytes: data, length: bufferSize, options: .storageModeShared)!
     }
     
     func fillTriangleBuffer()
@@ -205,7 +232,7 @@ class Renderer: NSObject, MTKViewDelegate {
             if (!foundMaterial)
             {
                 materialIndex = materialArray.count
-                assert(materialIndex < 8)
+                assert(materialIndex < MAX_MATERIALS)
                 materialArray.append(t.material)
             }
             
@@ -222,24 +249,36 @@ class Renderer: NSObject, MTKViewDelegate {
             vertices.append(v3)
         }
         
-        vertexInBuffer = fillBuffer(data: vertices)
+        fillBuffer(buffer: &vertexInBuffer, data: vertices)
         
-        materialBuffer = device.makeBuffer(bytes: materialArray, length: MemoryLayout<Material>.stride * 8, options: .storageModeShared)
+        fillBuffer(buffer: &materialBuffer, data: materialArray, size: MemoryLayout<Material>.stride * MAX_MATERIALS)
     }
     
     func fillUniformBuffer()
     {
         let uniforms = Uniforms(modelViewMatrix: modelViewMatrix, projectionMatrix: projectionMatrix)
         
-        let list2 = [uniforms]
+        let list = [uniforms]
         
-        uniformBuffer = fillBuffer(data: list2)
+        fillBuffer(buffer: &uniformBuffer, data: list)
+        
+        
+        
+        let fragmentUniforms = FragmentUniforms(cameraPosition: cameraPosition, cameraDirection: -normalize(cameraPosition), numLights: 2, ambientLight: SIMD4<Float>(0.1, 0.1, 0.1, 0.0))
+        
+        fillBuffer(buffer: &fragmentUniformBuffer, data: [fragmentUniforms])
     }
     
     func fillLightBuffer()
     {
-        let light = Light(position: SIMD3<Float>(0.0, 0.3, 0.2), direction: SIMD3<Float>(0.0, -1.0, 0.0), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0.1, lightType: SPOT_LIGHT)
-        lightBuffer = fillBuffer(data: [light])
+        let light1 = Light(position: SIMD3<Float>(0.0, 0.3, 0.2), direction: SIMD3<Float>(0.0, -1.0, 0.0), color: SIMD4<Float>(1.0, 0.0, 0.0, 1.0), coneAngle: 0.1, lightType: SPOT_LIGHT)
+        
+        let light2 = Light(position: SIMD3<Float>(0.0, 0.3, -1.0), direction: SIMD3<Float>(1.0, 1.0, 0.0), color: SIMD4<Float>(0.0, 0.8, 1.0, 1.0), coneAngle: 0.1, lightType: DIRECTIONAL_LIGHT)
+        
+        let lights = [light1, light2]
+        assert(lights.count < MAX_LIGHTS)
+        
+        fillBuffer(buffer: &lightBuffer, data: lights, size: MemoryLayout<Light>.stride * MAX_LIGHTS)
     }
     
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
@@ -253,7 +292,6 @@ class Renderer: NSObject, MTKViewDelegate {
         
         fillUniformBuffer()
         fillLightBuffer()
-        //fillTriangleBuffer()
         createRenderPassDescriptor(texture: renderView.currentDrawable!.texture)
         createCommandBuffer()
 
@@ -264,8 +302,9 @@ class Renderer: NSObject, MTKViewDelegate {
         commandEncoder.setVertexBuffer(vertexInBuffer, offset: 0, index: 0)
         commandEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
         
-        commandEncoder.setFragmentBuffer(materialBuffer, offset: 0, index: 0)
-        commandEncoder.setFragmentBuffer(lightBuffer, offset: 0, index: 8)
+        commandEncoder.setFragmentBuffer(fragmentUniformBuffer, offset: 0, index: 0)
+        commandEncoder.setFragmentBuffer(materialBuffer, offset: 0, index: 1)
+        commandEncoder.setFragmentBuffer(lightBuffer, offset: 0, index: 9)
         commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: triangles.count * 3)
         commandEncoder.endEncoding()
         
