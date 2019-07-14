@@ -29,7 +29,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     var projectionMatrix: simd_float4x4 = simd_float4x4()
     var modelViewMatrix: simd_float4x4 = simd_float4x4()
-    var cameraPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 1)
+    var cameraPosition: SIMD3<Float> = SIMD3<Float>(0, 0.5, -0.5)
     
     var triangles: [Triangle] = []
     var materialArray: [Material] = []
@@ -44,15 +44,10 @@ class Renderer: NSObject, MTKViewDelegate {
         self.renderView = renderView
         setup()
         
-        let m = Material(color: SIMD4<Float>(1.0, 1.0, 0.0, 1.0), diffuse: 0.0)
-        let t = createTriangleFromPoints(a: v1, b: v2, c: v3, m: m)
         
-        //triangles.append(t)
+        let m = Material(color: SIMD4<Float>(1.0, 0.0, 0.0, 1.0), diffuse: 0.0)
         
-        let m2 = Material(color: SIMD4<Float>(1.0, 0.0, 0.0, 1.0), diffuse: 0.0)
-
-
-        createRing(radius: 0.2, subdivisions: 50, height: 0.3, thiccness: 0.05, material: m2)
+        createRing(radius: 0.2, subdivisions: 100, height: 0.3, thiccness: 0.05, material: m)
         
         fillTriangleBuffer()
     }
@@ -74,10 +69,6 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func createRing(radius: Float, subdivisions: Int, height: Float, thiccness: Float, material: Material)
     {
-        
-        //let m3 = Material(color: SIMD4<Float>(1.0, 1.0, 0.0, 1.0), diffuse: 0.0)
-        //let m4 = Material(color: SIMD4<Float>(1.0, 0.0, 1.0, 1.0), diffuse: 0.0)
-        
         for n in 0..<subdivisions
         {
             let x = cos(2.0 * .pi * Float(n) / Float(subdivisions))
@@ -98,19 +89,53 @@ class Renderer: NSObject, MTKViewDelegate {
             let p6 = SIMD3<Float>(r2 * x, r2 * y, height)
             let p7 = SIMD3<Float>(r2 * x1, r2 * y1, 0.0)
             let p8 = SIMD3<Float>(r2 * x1, r2 * y1, height)
+            
+            
+            let n1 = normalize(SIMD3<Float>(x, y, 0.0))
+            let n2 = normalize(SIMD3<Float>(x1, y1, 0.0))
 
-            triangles.append(createTriangleFromPoints(a: p1, b: p3, c: p2, m: material))
-            triangles.append(createTriangleFromPoints(a: p3, b: p4, c: p2, m: material))
+            var t1 = createTriangleFromPoints(a: p1, b: p3, c: p2, m: material)
+            var t2 = createTriangleFromPoints(a: p3, b: p4, c: p2, m: material)
             
-            triangles.append(createTriangleFromPoints(a: p7, b: p5, c: p8, m: material))
-            triangles.append(createTriangleFromPoints(a: p5, b: p6, c: p8, m: material))
+            var t3 = createTriangleFromPoints(a: p7, b: p5, c: p8, m: material)
+            var t4 = createTriangleFromPoints(a: p5, b: p6, c: p8, m: material)
+            
+ 
+            t1.vertA.normal = -n1
+            t1.vertB.normal = -n2
+            t1.vertC.normal = -n1
+
+            t2.vertA.normal = -n2
+            t2.vertB.normal = -n2
+            t2.vertC.normal = -n1
+            
+            t3.vertA.normal = n2
+            t3.vertB.normal = n1
+            t3.vertC.normal = n2
+            
+            t4.vertA.normal = n1
+            t4.vertB.normal = n1
+            t4.vertC.normal = n2
+            
+
+            let t5 = createTriangleFromPoints(a: p2, b: p4, c: p6, m: material)
+            let t6 = createTriangleFromPoints(a: p4, b: p8, c: p6, m: material)
+
+            let t7 = createTriangleFromPoints(a: p5, b: p7, c: p1, m: material)
+            let t8 = createTriangleFromPoints(a: p7, b: p3, c: p1, m: material)
+
+            triangles.append(t1)
+            triangles.append(t2)
+            
+            triangles.append(t3)
+            triangles.append(t4)
             
             
-            triangles.append(createTriangleFromPoints(a: p2, b: p4, c: p6, m: material))
-            triangles.append(createTriangleFromPoints(a: p4, b: p8, c: p6, m: material))
+            triangles.append(t5)
+            triangles.append(t6)
             
-            triangles.append(createTriangleFromPoints(a: p5, b: p7, c: p1, m: material))
-            triangles.append(createTriangleFromPoints(a: p7, b: p3, c: p1, m: material))
+            triangles.append(t7)
+            triangles.append(t8)
         }
     }
     
@@ -213,8 +238,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func fillLightBuffer()
     {
-        let light = Light(position: SIMD3<Float>(1.0, 1.0, 0.0), direction: SIMD3<Float>(-1.0, -1.0, 0.0), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0))
-        
+        let light = Light(position: SIMD3<Float>(0.0, 0.3, 0.2), direction: SIMD3<Float>(0.0, -1.0, 0.0), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0.1, lightType: SPOT_LIGHT)
         lightBuffer = fillBuffer(data: [light])
     }
     
@@ -226,8 +250,6 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func draw(in view: MTKView) {
-
-        modelViewMatrix = look_at_matrix(eye: cameraPosition, target: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
         
         fillUniformBuffer()
         fillLightBuffer()
@@ -238,6 +260,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let commandEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
         commandEncoder.setRenderPipelineState(renderPipelineState)
         commandEncoder.setDepthStencilState(depthStencilState)
+        commandEncoder.setCullMode(.back)
         commandEncoder.setVertexBuffer(vertexInBuffer, offset: 0, index: 0)
         commandEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
         
@@ -275,6 +298,10 @@ class Renderer: NSObject, MTKViewDelegate {
         {
             cameraPosition -= SIMD3<Float>(0.0, 0.05, 0.0);
         }
+        
+        modelViewMatrix = look_at_matrix(eye: cameraPosition, target: SIMD3<Float>(0, 0, 0), up: SIMD3<Float>(0, 1, 0))
+        
+        fillUniformBuffer()
     }
     
     func keyUp(with theEvent: NSEvent) {

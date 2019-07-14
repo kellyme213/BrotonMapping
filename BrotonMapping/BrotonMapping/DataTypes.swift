@@ -12,6 +12,9 @@ import Metal
 import MetalKit
 
 
+let DIRECTIONAL_LIGHT: Int8 = 0
+let SPOT_LIGHT: Int8 = 1
+
 struct Vertex
 {
     var position: SIMD4<Float>
@@ -54,6 +57,8 @@ struct Light
     var position: SIMD3<Float>
     var direction: SIMD3<Float>
     var color: SIMD4<Float>
+    var coneAngle: Float
+    var lightType: Int8
 }
 
 
@@ -97,7 +102,6 @@ func new_look_at(eye: SIMD3<Float>, target: SIMD3<Float>) -> matrix_float4x4
 {
     let t = matrix4x4_translation(-eye.x, -eye.y, -eye.z)
     let up = SIMD3<Float>(0, 1, 0)
-    let et = target - eye
     
     let f = normalize(eye - target)
     let l = normalize(cross(up, f))
@@ -105,9 +109,7 @@ func new_look_at(eye: SIMD3<Float>, target: SIMD3<Float>) -> matrix_float4x4
     let rot = matrix_float4x4.init(columns: (SIMD4<Float>(l, 0.0),
                                              SIMD4<Float>(u, 0.0),
                                              SIMD4<Float>(f, 0.0),
-                                             SIMD4<Float>(0.0, 0.0, 0.0, 1.0))).inverse
-    
-    let r = matrix4x4_rotation(radians: dot(et, up) * 3.14, axis: normalize(cross(up, et)))
+                                             SIMD4<Float>(0.0, 0.0, 0.0, 1.0))).transpose
     return (rot * t)
 }
 
@@ -128,7 +130,7 @@ func look_at_matrix(eye: SIMD3<Float>, target: SIMD3<Float>, up: SIMD3<Float>) -
 
 func createTriangleFromPoints(a: SIMD3<Float>, b: SIMD3<Float>, c: SIMD3<Float>, m: Material) -> Triangle
 {
-    let norm = normalize(cross(b - a, c - a))
+    let norm = -normalize(cross(b - a, c - a))
     
     let v1 = Vertex(position: SIMD4<Float>(a, 1.0), normal: norm)
     let v2 = Vertex(position: SIMD4<Float>(b, 1.0), normal: norm)

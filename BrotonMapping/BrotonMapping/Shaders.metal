@@ -11,6 +11,9 @@
 
 using namespace metal;
 
+constant int8_t DIRECTIONAL_LIGHT = 0;
+constant int8_t SPOT_LIGHT = 1;
+
 typedef struct
 {
     float4 position;
@@ -43,6 +46,8 @@ typedef struct
     float3 position;
     float3 direction;
     float4 color;
+    float coneAngle;
+    int8_t lightType;
 } Light;
 
 
@@ -63,11 +68,25 @@ fragment float4 fragmentShader(VertexOut in [[stage_in]],
                                const device array<Material, 8>& materials [[buffer(0)]],
                                const device Light& light [[buffer(8)]])
 {
+    float3 lightToPoint = in.absolutePosition.xyz - light.position;
+    float3 lightNorm = normalize(lightToPoint);
     
-    float3 dirToLight = in.absolutePosition.xyz - light.position;
-    float3 lightNorm = normalize(dirToLight);
+    float degree = dot(lightNorm, normalize(light.direction));
+    
+    bool shouldBeLitBySpotLight = (degree >= 0.0f) && ((1.0f - degree) <= (light.coneAngle));
+    
+    bool isSpotLight = (light.lightType == SPOT_LIGHT);
+    bool isDirectionalLight = (light.lightType == DIRECTIONAL_LIGHT);
+
+    float spotlightConstant = isSpotLight * shouldBeLitBySpotLight * max(0.0f, -dot(normalize(in.normal), normalize(light.direction)));
+    float directionalLightConstant = isDirectionalLight * max(0.0f, -dot(normalize(in.normal), normalize(light.direction)));
+    
+    float4 ambientLight = float4(0.1f, 0.1f, 0.1f, 0.0f);
+    float4 spotLightColor = spotlightConstant * light.color;
+    float4 directionalColor = directionalLightConstant * light.color;
+
     float4 materialColor = materials[in.materialNum].color;
-    float4 finalColor = max(0.0f, dot(in.normal, light.direction)) * light.color * materialColor + float4(0.2, 0.2, 0.2, 0.0);
+    float4 finalColor = ((directionalColor + spotLightColor) * materialColor) + ambientLight;
     
     return finalColor;
 }
