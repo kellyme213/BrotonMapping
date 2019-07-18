@@ -17,15 +17,16 @@ class RenderView: MTKView
     
     override init(frame frameRect: CGRect, device: MTLDevice?) {
         super.init(frame: frameRect, device: device)
-        
+                
         self.device = device!
                 
         self.depthStencilPixelFormat = .depth32Float
 
+        
+        self.framebufferOnly = false
         renderer = Renderer(renderView: self)
         self.delegate = renderer
         renderer.mtkView(self, drawableSizeWillChange: self.drawableSize)
-        
     }
     
     required init(coder: NSCoder) {

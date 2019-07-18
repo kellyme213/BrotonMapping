@@ -8,58 +8,10 @@
 
 #include <metal_stdlib>
 #include <simd/simd.h>
+#include "ShaderStructs.h"
 
 using namespace metal;
 
-constant int8_t DIRECTIONAL_LIGHT = 0;
-constant int8_t SPOT_LIGHT = 1;
-
-typedef struct
-{
-    float4 position;
-    float3 normal;
-    int materialNum;
-} VertexIn;
-
-typedef struct
-{
-    float4 transformedPosition [[position]];
-    float4 absolutePosition;
-    float3 normal;
-    int materialNum;
-} VertexOut;
-
-typedef struct
-{
-    matrix_float4x4 modelViewMatrix;
-    matrix_float4x4 projectionMatrix;
-} Uniforms;
-
-typedef struct
-{
-    float4 kAmbient;
-    float4 kDiffuse;
-    float4 kSpecular;
-    float shininess;
-    float diffuse;
-} Material;
-
-typedef struct
-{
-    float3 position;
-    float3 direction;
-    float4 color;
-    float coneAngle;
-    int8_t lightType;
-} Light;
-
-typedef struct
-{
-    float3 cameraPosition;
-    float3 cameraDirection;
-    int8_t numLights;
-    float4 ambientLight;
-} FragmentUniforms;
 
 
 vertex VertexOut vertexShader(const device VertexIn* vertArray [[buffer(0)]],
@@ -100,15 +52,20 @@ fragment float4 fragmentShader(VertexOut in [[stage_in]],
         
         bool isSpotLight = (light.lightType == SPOT_LIGHT);
         bool isDirectionalLight = (light.lightType == DIRECTIONAL_LIGHT);
-
+        bool isPointLight = (light.lightType == POINT_LIGHT);
         
         float diffuseConstant = max(0.0f, -dot(normalize(in.normal), normalize(light.direction)));
         float specularConstant = pow(max(0.0f, dot(reflect(-lightNorm, normalize(in.normal)), fragmentUniforms.cameraDirection)), shininess);
+        float pointLightConstant = max(0.0f, -dot(normalize(in.normal), lightNorm));
+        
+        
+        diffuseConstant = ((!isPointLight) * diffuseConstant) + (isPointLight * pointLightConstant);
         
         float spotlightConstant = isSpotLight * shouldBeLitBySpotLight;
         float directionalLightConstant = isDirectionalLight;
+        //float pointLightConstant = isPointLight;
         
-        float lightConstant = spotlightConstant + directionalLightConstant;
+        float lightConstant = spotlightConstant + directionalLightConstant + (isPointLight);
         
         
         diffuseLightColor += lightConstant * diffuseConstant * light.color;

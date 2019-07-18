@@ -44,19 +44,20 @@ class Renderer: NSObject, MTKViewDelegate {
     var v2 = SIMD3<Float>(-0.6, -0.2, 0.0)
     var v3 = SIMD3<Float>(0.0, 0.2, 0.0)
     
+    var renderMode = RASTERIZATION_MODE
+    var rayTracer: RayTracer!
+    
+    
     init?(renderView: RenderView) {
         super.init()
         
         self.renderView = renderView
         setup()
+        createRingStuff()
         
-        
-        let m = Material()
-                
-        createRing(radius: 0.2, subdivisions: 100, height: 0.3, thiccness: 0.05, material: m)
-        
-        fillTriangleBuffer()
-        fillLightBuffer()
+        rayTracer = RayTracer(device: device)
+        rayTracer.generateRayBuffer(size: renderView.frame.size)
+        rayTracer.generateAccelerationStructure(triangles: triangles)
     }
     
     func createShaders()
@@ -72,78 +73,6 @@ class Renderer: NSObject, MTKViewDelegate {
         renderPipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
         
         renderPipelineState = try! device.makeRenderPipelineState(descriptor: renderPipelineDescriptor)
-    }
-    
-    func createRing(radius: Float, subdivisions: Int, height: Float, thiccness: Float, material: Material)
-    {
-        for n in 0..<subdivisions
-        {
-            let x = cos(2.0 * .pi * Float(n) / Float(subdivisions))
-            let y = sin(2.0 * .pi * Float(n) / Float(subdivisions))
-            
-            let x1 = cos(2.0 * .pi * Float(n + 1) / Float(subdivisions))
-            let y1 = sin(2.0 * .pi * Float(n + 1) / Float(subdivisions))
-            
-            let r1 = radius
-            let r2 = radius + thiccness
-            
-            let p1 = SIMD3<Float>(r1 * x, r1 * y, 0.0)
-            let p2 = SIMD3<Float>(r1 * x, r1 * y, height)
-            let p3 = SIMD3<Float>(r1 * x1, r1 * y1, 0.0)
-            let p4 = SIMD3<Float>(r1 * x1, r1 * y1, height)
-            
-            let p5 = SIMD3<Float>(r2 * x, r2 * y, 0.0)
-            let p6 = SIMD3<Float>(r2 * x, r2 * y, height)
-            let p7 = SIMD3<Float>(r2 * x1, r2 * y1, 0.0)
-            let p8 = SIMD3<Float>(r2 * x1, r2 * y1, height)
-            
-            
-            let n1 = normalize(SIMD3<Float>(x, y, 0.0))
-            let n2 = normalize(SIMD3<Float>(x1, y1, 0.0))
-
-            var t1 = createTriangleFromPoints(a: p1, b: p3, c: p2, m: material)
-            var t2 = createTriangleFromPoints(a: p3, b: p4, c: p2, m: material)
-            
-            var t3 = createTriangleFromPoints(a: p7, b: p5, c: p8, m: material)
-            var t4 = createTriangleFromPoints(a: p5, b: p6, c: p8, m: material)
-            
- 
-            t1.vertA.normal = -n1
-            t1.vertB.normal = -n2
-            t1.vertC.normal = -n1
-
-            t2.vertA.normal = -n2
-            t2.vertB.normal = -n2
-            t2.vertC.normal = -n1
-            
-            t3.vertA.normal = n2
-            t3.vertB.normal = n1
-            t3.vertC.normal = n2
-            
-            t4.vertA.normal = n1
-            t4.vertB.normal = n1
-            t4.vertC.normal = n2
-            
-
-            let t5 = createTriangleFromPoints(a: p2, b: p4, c: p6, m: material)
-            let t6 = createTriangleFromPoints(a: p4, b: p8, c: p6, m: material)
-
-            let t7 = createTriangleFromPoints(a: p5, b: p7, c: p1, m: material)
-            let t8 = createTriangleFromPoints(a: p7, b: p3, c: p1, m: material)
-
-            triangles.append(t1)
-            triangles.append(t2)
-            
-            triangles.append(t3)
-            triangles.append(t4)
-            
-            
-            triangles.append(t5)
-            triangles.append(t6)
-            
-            triangles.append(t7)
-            triangles.append(t8)
-        }
     }
     
     func setup()
@@ -185,37 +114,6 @@ class Renderer: NSObject, MTKViewDelegate {
         depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
     }
     
-    func fillBuffer<T>(buffer: inout MTLBuffer?, data: [T], size: Int = 0)
-    {
-        if (buffer == nil)
-        {
-            buffer = createBuffer(data: data, size: size)
-        }
-        else
-        {
-            var bufferSize: Int = size
-            
-            if (size == 0)
-            {
-                bufferSize = MemoryLayout<T>.stride * data.count
-            }
-            
-            memcpy(buffer!.contents(), data, bufferSize)
-        }
-    }
-    
-    func createBuffer<T>(data: [T], size: Int = 0) -> MTLBuffer!
-    {
-        var bufferSize: Int = size
-        
-        if (size == 0)
-        {
-            bufferSize = MemoryLayout<T>.stride * data.count
-        }
-        
-        return device.makeBuffer(bytes: data, length: bufferSize, options: .storageModeShared)!
-    }
-    
     func fillTriangleBuffer()
     {
         materialArray.removeAll()
@@ -255,9 +153,9 @@ class Renderer: NSObject, MTKViewDelegate {
             vertices.append(v3)
         }
         
-        fillBuffer(buffer: &vertexInBuffer, data: vertices)
+        fillBuffer(device: device, buffer: &vertexInBuffer, data: vertices)
         
-        fillBuffer(buffer: &materialBuffer, data: materialArray, size: MemoryLayout<Material>.stride * MAX_MATERIALS)
+        fillBuffer(device: device, buffer: &materialBuffer, data: materialArray, size: MemoryLayout<Material>.stride * MAX_MATERIALS)
     }
     
     func fillUniformBuffer()
@@ -266,57 +164,58 @@ class Renderer: NSObject, MTKViewDelegate {
         
         let list = [uniforms]
         
-        fillBuffer(buffer: &uniformBuffer, data: list)
-        
-        
+        fillBuffer(device: device, buffer: &uniformBuffer, data: list)
         
         let fragmentUniforms = FragmentUniforms(cameraPosition: cameraPosition, cameraDirection: cameraDirection, numLights: Int8(lights.count), ambientLight: SIMD4<Float>(0.1, 0.1, 0.1, 0.0))
         
-        fillBuffer(buffer: &fragmentUniformBuffer, data: [fragmentUniforms])
+        fillBuffer(device: device, buffer: &fragmentUniformBuffer, data: [fragmentUniforms])
+        
+        let size = CGSize(width: renderView.currentDrawable!.texture.width, height: renderView.currentDrawable!.texture.height)
+        
+        rayTracer.regenerateUniformBuffer(size: size, cameraPosition: cameraPosition, cameraDirection: cameraDirection)
     }
     
     func fillLightBuffer()
     {
-        let light1 = Light(position: SIMD3<Float>(0.0, 0.3, 0.2), direction: SIMD3<Float>(0.0, -1.0, 0.0), color: SIMD4<Float>(1.0, 0.0, 0.0, 1.0), coneAngle: 0.1, lightType: SPOT_LIGHT)
-        
-        let light2 = Light(position: SIMD3<Float>(0.0, 0.3, -1.0), direction: SIMD3<Float>(1.0, 1.0, 0.0), color: SIMD4<Float>(0.0, 0.8, 1.0, 1.0), coneAngle: 0.1, lightType: DIRECTIONAL_LIGHT)
-        
-        let light3 = Light(position: SIMD3<Float>(0.0, 0.0, -1.0), direction: SIMD3<Float>(0.0, 0.0, 1.0), color: SIMD4<Float>(0.2, 0.0, 0.2, 1.0), coneAngle: 0.1, lightType: DIRECTIONAL_LIGHT)
-        
-        lights.append(light1)
-        lights.append(light2)
-        lights.append(light3)
-
         assert(Int8(lights.count) < MAX_LIGHTS)
         
-        fillBuffer(buffer: &lightBuffer, data: lights, size: MemoryLayout<Light>.stride * MAX_LIGHTS)
+        fillBuffer(device: device, buffer: &lightBuffer, data: lights, size: MemoryLayout<Light>.stride * MAX_LIGHTS)
     }
     
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         
         let aspect = Float(size.width) / Float(size.height)
         projectionMatrix = matrix_perspective_right_hand(fovyRadians: radians_from_degrees(65), aspectRatio:aspect, nearZ: 0.1, farZ: 100.0)
-        updateUniformMatrices()
+        updateUniformMatrices()        
+        
+        rayTracer.generateRayBuffer(size: size)
     }
     
     func draw(in view: MTKView) {
         
         fillUniformBuffer()
-        createRenderPassDescriptor(texture: renderView.currentDrawable!.texture)
         createCommandBuffer()
-
-        let commandEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
-        commandEncoder.setRenderPipelineState(renderPipelineState)
-        commandEncoder.setDepthStencilState(depthStencilState)
-        commandEncoder.setCullMode(.back)
-        commandEncoder.setVertexBuffer(vertexInBuffer, offset: 0, index: 0)
-        commandEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
         
-        commandEncoder.setFragmentBuffer(fragmentUniformBuffer, offset: 0, index: 0)
-        commandEncoder.setFragmentBuffer(materialBuffer, offset: 0, index: 1)
-        commandEncoder.setFragmentBuffer(lightBuffer, offset: 0, index: 9)
-        commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: triangles.count * 3)
-        commandEncoder.endEncoding()
+        if (renderMode == RASTERIZATION_MODE)
+        {
+            createRenderPassDescriptor(texture: renderView.currentDrawable!.texture)
+            let commandEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
+            commandEncoder.setRenderPipelineState(renderPipelineState)
+            commandEncoder.setDepthStencilState(depthStencilState)
+            commandEncoder.setCullMode(.back)
+            commandEncoder.setVertexBuffer(vertexInBuffer, offset: 0, index: 0)
+            commandEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
+            
+            commandEncoder.setFragmentBuffer(fragmentUniformBuffer, offset: 0, index: 0)
+            commandEncoder.setFragmentBuffer(materialBuffer, offset: 0, index: 1)
+            commandEncoder.setFragmentBuffer(lightBuffer, offset: 0, index: 9)
+            commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: triangles.count * 3)
+            commandEncoder.endEncoding()
+        }
+        if (renderMode == RAY_TRACING_MODE || renderMode == PHOTON_MAPPING_MODE)
+        {
+            rayTracer.traceRays(texture: renderView.currentDrawable!.texture, commandBuffer: commandBuffer)
+        }
         
         commandBuffer.present(renderView.currentDrawable!)
         commandBuffer.commit()
@@ -358,6 +257,26 @@ class Renderer: NSObject, MTKViewDelegate {
             cameraPosition = defaultCameraPosition
             cameraDirection = defaultCameraDirection
         }
+        else if (theEvent.keyCode == KEY_1)
+        {
+            createRingStuff()
+        }
+        else if (theEvent.keyCode == KEY_2)
+        {
+            createBoxStuff()
+        }
+        else if (theEvent.keyCode == KEY_I)
+        {
+            renderMode = RASTERIZATION_MODE
+        }
+        else if (theEvent.keyCode == KEY_O)
+        {
+            renderMode = RAY_TRACING_MODE
+        }
+        else if (theEvent.keyCode == KEY_P)
+        {
+            renderMode = PHOTON_MAPPING_MODE
+        }
         
         updateUniformMatrices()
     }
@@ -368,7 +287,6 @@ class Renderer: NSObject, MTKViewDelegate {
         fillUniformBuffer()
     }
     
-    
     var mousePress = CGPoint(x: 0, y: 0)
     var oldCameraDirection = SIMD3<Float>(0, 0, 0)
     var cachedCameraDirction = SIMD3<Float>(0, 0, 0)
@@ -378,13 +296,14 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func mouseUp(with event: NSEvent) {
-        
+        let size = CGSize(width: renderView.frame.width, height: renderView.frame.height)
+        rayTracer.regenerateUniformBuffer(size: size, cameraPosition: cameraPosition, cameraDirection: cameraDirection)
     }
     
     func mouseDown(with event: NSEvent) {
         mousePress = event.locationInWindow
         
-        var x = mousePress.x - (event.window!.frame.width / 2.0)
+        var x = -(mousePress.x - (event.window!.frame.width / 2.0))
         var y = -(mousePress.y - (event.window!.frame.height / 2.0))
         
         x = x / event.window!.frame.width
@@ -394,36 +313,9 @@ class Renderer: NSObject, MTKViewDelegate {
         cachedCameraDirction = cameraDirection
     }
     
-    //https://braintrekking.wordpress.com/2012/08/21/tutorial-of-arcball-without-quaternions/
-    func createArcballCameraDirection(x: Float, y: Float) -> SIMD3<Float>
-    {
-        var newCameraDirection = SIMD3<Float>(0,0,0)
-        let d = x * x + y * y
-        let ballRadius: Float = 1.0
-        
-        if (d > ballRadius * ballRadius)
-        {
-            newCameraDirection = SIMD3<Float>(x, y, 0.0)
-        }
-        else
-        {
-            newCameraDirection = SIMD3<Float>(x, y, Float(sqrt(ballRadius * ballRadius - d)))
-        }
-        
-        if (dot(newCameraDirection, newCameraDirection) > 0.001)
-        {
-            newCameraDirection = normalize(newCameraDirection)
-        }
-        else
-        {
-            print("BAD")
-        }
-        return newCameraDirection
-    }
-    
     func mouseDragged(with event: NSEvent) {
         
-        let x = event.locationInWindow.x - (event.window!.frame.width / 2.0)
+        let x = -(event.locationInWindow.x - (event.window!.frame.width / 2.0))
         let y = -(event.locationInWindow.y - (event.window!.frame.height / 2.0))
         
         let dx = x / event.window!.frame.width
