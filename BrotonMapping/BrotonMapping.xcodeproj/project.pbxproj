@@ -35,6 +35,7 @@
 		4C68FA8D22D591CF00DF023A /* MetalKeys.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalKeys.swift; sourceTree = "<group>"; };
 		4C68FA8F22D5924000DF023A /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
 		4C71911522E043A9007F368D /* UtilityFunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UtilityFunctions.swift; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/UtilityFunctions.swift; sourceTree = "<group>"; };
+		4C71911722E045E0007F368D /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/README.md; sourceTree = "<group>"; };
 		4CA2BB1822DBEFF200A39BE7 /* RayTracer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RayTracer.swift; sourceTree = "<group>"; };
 		4CA2BB1A22DBFA2C00A39BE7 /* Compute.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Compute.metal; sourceTree = "<group>"; };
 		4CA2BB1C22DBFBED00A39BE7 /* ShaderStructs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ShaderStructs.h; sourceTree = "<group>"; };
@@ -54,6 +55,7 @@
 		4C68FA6B22D5845300DF023A = {
 			isa = PBXGroup;
 			children = (
+				4C71911722E045E0007F368D /* README.md */,
 				4C68FA7622D5845300DF023A /* BrotonMapping */,
 				4C68FA7522D5845300DF023A /* Products */,
 			);
