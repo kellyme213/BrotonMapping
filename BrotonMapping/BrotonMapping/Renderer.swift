@@ -56,8 +56,8 @@ class Renderer: NSObject, MTKViewDelegate {
         createRingStuff()
         
         rayTracer = RayTracer(device: device)
+        rayTracer.generateAccelerationStructure(triangles: triangles, lights: lights)
         rayTracer.generateRayBuffer(size: renderView.frame.size)
-        rayTracer.generateAccelerationStructure(triangles: triangles)
     }
     
     func createShaders()
@@ -114,49 +114,7 @@ class Renderer: NSObject, MTKViewDelegate {
         depthStencilState = device.makeDepthStencilState(descriptor: depthStencilDescriptor)
     }
     
-    func fillTriangleBuffer()
-    {
-        materialArray.removeAll()
-        var vertices: [Vertex] = []
-        
-        for t in triangles
-        {
-            var foundMaterial = false
-            var materialIndex = 0
-            for x in 0 ..< materialArray.count
-            {
-                if (materialArray[x] == t.material)
-                {
-                    foundMaterial = true
-                    materialIndex = x
-                    break
-                }
-            }
-            
-            if (!foundMaterial)
-            {
-                materialIndex = materialArray.count
-                assert(materialIndex < MAX_MATERIALS)
-                materialArray.append(t.material)
-            }
-            
-            var v1 = t.vertA
-            var v2 = t.vertB
-            var v3 = t.vertC
-            
-            v1.materialNum = materialIndex
-            v2.materialNum = materialIndex
-            v3.materialNum = materialIndex
 
-            vertices.append(v1)
-            vertices.append(v2)
-            vertices.append(v3)
-        }
-        
-        fillBuffer(device: device, buffer: &vertexInBuffer, data: vertices)
-        
-        fillBuffer(device: device, buffer: &materialBuffer, data: materialArray, size: MemoryLayout<Material>.stride * MAX_MATERIALS)
-    }
     
     func fillUniformBuffer()
     {
@@ -189,6 +147,8 @@ class Renderer: NSObject, MTKViewDelegate {
         updateUniformMatrices()        
         
         rayTracer.generateRayBuffer(size: size)
+        rayTracer.generateOtherBuffers(size: size)
+        //rayTracer.createCachedTexture(size: size)
     }
     
     func draw(in view: MTKView) {
@@ -298,6 +258,7 @@ class Renderer: NSObject, MTKViewDelegate {
     func mouseUp(with event: NSEvent) {
         let size = CGSize(width: renderView.frame.width, height: renderView.frame.height)
         rayTracer.regenerateUniformBuffer(size: size, cameraPosition: cameraPosition, cameraDirection: cameraDirection)
+        //rayTracer.generateOtherBuffers(size: size)
     }
     
     func mouseDown(with event: NSEvent) {

@@ -223,6 +223,80 @@ func createRing(radius: Float, subdivisions: Int, height: Float, thiccness: Floa
     }
 }
 
+func fillTriangleBuffer(device: MTLDevice, materialArray: inout [Material], triangles: [Triangle], vertexBuffer: inout MTLBuffer?, materialBuffer: inout MTLBuffer?)
+{
+    var vertices: [Vertex] = []
+    
+    for t in triangles
+    {
+        var foundMaterial = false
+        var materialIndex = 0
+        for x in 0 ..< materialArray.count
+        {
+            if (materialArray[x] == t.material)
+            {
+                foundMaterial = true
+                materialIndex = x
+                break
+            }
+        }
+        
+        if (!foundMaterial)
+        {
+            materialIndex = materialArray.count
+            assert(materialIndex < MAX_MATERIALS)
+            materialArray.append(t.material)
+        }
+        
+        var v1 = t.vertA
+        var v2 = t.vertB
+        var v3 = t.vertC
+        
+        v1.materialNum = materialIndex
+        v2.materialNum = materialIndex
+        v3.materialNum = materialIndex
+        
+        vertices.append(v1)
+        vertices.append(v2)
+        vertices.append(v3)
+    }
+    
+    fillBuffer(device: device, buffer: &vertexBuffer, data: vertices)
+    
+    fillBuffer(device: device, buffer: &materialBuffer, data: materialArray, size: MemoryLayout<Material>.stride * MAX_MATERIALS)
+}
+
+
+
+
+func createRandomTexture(device: MTLDevice, width: Int, height: Int, usage: MTLTextureUsage = .shaderRead) -> MTLTexture
+{
+    let textureDescriptor = MTLTextureDescriptor()
+    textureDescriptor.width = width
+    textureDescriptor.height = height
+    textureDescriptor.pixelFormat = .bgra8Unorm
+    textureDescriptor.usage = usage
+    textureDescriptor.storageMode = .managed
+    
+    var randomValues: [SIMD3<Float>] = []
+    
+    for _ in 0 ..< width * height
+    {
+        randomValues.append(SIMD3<Float>(Float(drand48()), Float(drand48()), Float(drand48())))
+    }
+    
+    assert(randomValues.count == width * height)
+    
+    let texture = device.makeTexture(descriptor: textureDescriptor)!
+    
+    texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: &randomValues, bytesPerRow: MemoryLayout<SIMD3<Float>>.stride * width)
+    
+    return texture
+    
+    
+}
+
+
 
 extension Renderer
 {
@@ -235,6 +309,7 @@ extension Renderer
         
         var m = Material()
         m.kDiffuse = SIMD4<Float>(1.0, 0.8, 0.0, 1.0)
+        m.absorbiness = 0.0
         
         createRing(radius: 0.95, subdivisions: 100, height: 0.1, thiccness: 0.05, material: m, triangles: &triangles)
         
@@ -255,10 +330,18 @@ extension Renderer
         cameraPosition = SIMD3<Float>(0.0, -1.0, 1.3)
         cameraDirection = normalize(SIMD3<Float>(0.0, 0.5, -0.85))
         
-        let light1 = Light(position: SIMD3<Float>(0.0, 1.0, 2.0), direction: normalize(SIMD3<Float>(0.0, -1.0, -1.0)), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0, lightType: DIRECTIONAL_LIGHT)
+        var light1 = Light(position: SIMD3<Float>(0.0, 1.0, 2.0), direction: normalize(SIMD3<Float>(0.0, -1.0, -1.0)), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0, lightType: DIRECTIONAL_LIGHT)
+        
+        let right = normalize(cross(light1.direction, SIMD3<Float>(0, 1, 0)))
+        let up = -normalize(cross(right, light1.direction))
+        
+        light1.right = right
+        light1.up = up
+        
         lights.append(light1)
         
-        fillTriangleBuffer()
+        materialArray.removeAll()
+        fillTriangleBuffer(device: device, materialArray: &materialArray, triangles: triangles, vertexBuffer: &vertexInBuffer, materialBuffer: &materialBuffer)
         fillLightBuffer()
     }
     
@@ -316,7 +399,8 @@ extension Renderer
         let light1 = Light(position: SIMD3<Float>(0.0, 0.0, -1.5), color: SIMD4<Float>(0.5, 0.5, 0.5, 1.0), lightType: POINT_LIGHT)
         lights.append(light1)
         
-        fillTriangleBuffer()
+        materialArray.removeAll()
+        fillTriangleBuffer(device: device, materialArray: &materialArray, triangles: triangles, vertexBuffer: &vertexInBuffer, materialBuffer: &materialBuffer)
         fillLightBuffer()
     }
 }

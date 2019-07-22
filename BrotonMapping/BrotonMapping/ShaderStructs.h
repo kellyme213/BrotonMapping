@@ -12,12 +12,15 @@
 
 //using namespace metal;
 #define RAY_MASK_PRIMARY   3
+#define RAY_MASK_SHADOW    1
+#define RAY_MASK_SECONDARY 1
 
 
 
 constant int8_t DIRECTIONAL_LIGHT = 0;
 constant int8_t SPOT_LIGHT = 1;
 constant int8_t POINT_LIGHT = 2;
+constant int8_t AREA_LIGHT = 3;
 
 
 typedef struct
@@ -47,13 +50,16 @@ typedef struct
     float4 kDiffuse;
     float4 kSpecular;
     float shininess;
-    float diffuse;
+    float reflectivity;
+    float absorbiness;
 } Material;
 
 typedef struct
 {
     float3 position;
     float3 direction;
+    float3 right;
+    float3 up;
     float4 color;
     float coneAngle;
     int8_t lightType;
@@ -75,6 +81,7 @@ typedef struct
     float3 up;
     int32_t width;
     int32_t height;
+    int8_t numLights;
 } RayKernelUniforms;
 
 typedef struct

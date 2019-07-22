@@ -15,6 +15,7 @@ import MetalKit
 let DIRECTIONAL_LIGHT: Int8 = 0
 let SPOT_LIGHT: Int8 = 1
 let POINT_LIGHT: Int8 = 2
+let AREA_LIGHT: Int8 = 3
 
 let MAX_MATERIALS: Int = 8
 let MAX_LIGHTS: Int = 8
@@ -47,14 +48,15 @@ struct Material: Equatable
                 lhs.kDiffuse == rhs.kDiffuse &&
                 lhs.kSpecular == rhs.kSpecular &&
                 lhs.shininess == rhs.shininess &&
-                lhs.diffuse == rhs.diffuse
+                lhs.reflectivity == rhs.reflectivity
     }
     
     var kAmbient: SIMD4<Float>  = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
     var kDiffuse: SIMD4<Float>  = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
     var kSpecular: SIMD4<Float> = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
     var shininess: Float = 100.0
-    var diffuse: Float = 0.0
+    var reflectivity: Float = 0.0
+    var absorbiness: Float = 0.0
 }
 
 struct Uniforms
@@ -67,6 +69,8 @@ struct Light
 {
     var position: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 0.0)
     var direction: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 0.0)
+    var right: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 0.0)
+    var up: SIMD3<Float> = SIMD3<Float>(0.0, 0.0, 0.0)
     var color: SIMD4<Float> = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
     var coneAngle: Float = 1.0
     var lightType: Int8 = POINT_LIGHT
@@ -97,6 +101,7 @@ struct RayKernelUniforms
     var up: SIMD3<Float>
     var width: Int32
     var height: Int32
+    var numLights: Int8
 }
 
 
