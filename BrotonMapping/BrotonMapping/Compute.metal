@@ -43,8 +43,8 @@ inline void sampleAreaLight(device Light & light,
     float inverseLightDistance = 1.0f / max(lightDistance, 1e-3f);
     lightDirection *= inverseLightDistance;
     lightColor = light.color.xyz;
-    lightColor *= (inverseLightDistance);// * inverseLightDistance);
-    lightColor *= saturate(dot(-lightDirection, light.direction));
+    //lightColor *= (inverseLightDistance * inverseLightDistance);
+    lightColor *= max(dot(-lightDirection, light.direction), 0.0f);
     
 }
 
@@ -182,14 +182,14 @@ shadeKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
            float3 lightColor;
            float lightDistance;
            
-           sampleAreaLight(lights[x], rand.xy, intersectionPoint, lightDirection,
+           sampleAreaLight(lights[x], rand.yz, intersectionPoint, lightDirection,
                            lightColor, lightDistance);
-           lightColor *= saturate(dot(surfaceNormal, lightDirection));
+           lightColor *= max(dot(surfaceNormal, lightDirection), 0.0f);
            
            
            device Ray& shadowRay = shadowRays[uniforms.numLights * rayIdx + x];
            
-           shadowRay.color = (energy[rayIdx]) * (1.0 - material.absorbiness) * ray.color * material.kDiffuse.xyz * lightColor;
+           shadowRay.color = (energy[rayIdx]) * (1.0 - 0.0) * ray.color * material.kDiffuse.xyz * lightColor;
            
            
            shadowRay.direction = packed_float3(normalize(lightDirection));
@@ -205,9 +205,8 @@ shadeKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
        
        energy[rayIdx] *= material.absorbiness;
        
-       
-       ray.direction = packed_float3(getNewDirection(surfaceNormal, rand.zw, ray.direction, material.reflectivity));
-       ray.origin = packed_float3(intersectionPoint + (0.001 * ray.direction));
+       ray.direction = packed_float3(getNewDirection(surfaceNormal, rand.xy, ray.direction, material.reflectivity));
+        ray.origin = packed_float3(intersectionPoint + (0.001 * ray.direction));
        ray.color = ray.color * material.kDiffuse.xyz;
        }
        else
@@ -249,7 +248,7 @@ aggregateKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
             device Ray& shadowRay = shadowRays[uniforms.numLights * rayIdx + x];
             float intersectionDistance = intersections[uniforms.numLights * rayIdx + x].distance;
             
-            float shouldAddColor = (shadowRay.maxDistance >= 0.0f && intersectionDistance < 0.0f);
+            float shouldAddColor = (shadowRay.maxDistance >= 0.0f && intersectionDistance < 0.0f) || (shadowRay.maxDistance >= 0.0f && shadowRay.maxDistance <= intersectionDistance);
             
             color += shouldAddColor * shadowRay.color;
         }

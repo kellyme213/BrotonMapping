@@ -54,6 +54,7 @@ class Renderer: NSObject, MTKViewDelegate {
         self.renderView = renderView
         setup()
         createRingStuff()
+        //createBoxStuff()
         
         rayTracer = RayTracer(device: device)
         rayTracer.generateAccelerationStructure(triangles: triangles, lights: lights)
@@ -148,6 +149,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         rayTracer.generateRayBuffer(size: size)
         rayTracer.generateOtherBuffers(size: size)
+        rayTracer.numRenders = 0
         //rayTracer.createCachedTexture(size: size)
     }
     

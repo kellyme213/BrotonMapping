@@ -41,7 +41,7 @@ class RayTracer
     var lights: [Light] = []
     var materials: [Material] = []
     var shadowRenderTextures: [MTLTexture] = []
-    let NUM_BOUNCES = 1;
+    let NUM_BOUNCES = 5;
     var numRenders: Int32 = 1;
     var cachedRender: MTLTexture!
     
@@ -60,7 +60,7 @@ class RayTracer
         intersector.rayDataType = .originMaskDirectionMaxDistance
         intersector.rayStride = rayStride
         intersector.intersectionDataType = .distancePrimitiveIndexCoordinates
-        
+
         var vertexPositions: [SIMD3<Float>] = []
         for t in triangles
         {
@@ -212,7 +212,7 @@ class RayTracer
         generateRayBuffer(size: CGSize(width: width, height: height))
         //generateOtherBuffers(size: CGSize(width: width, height: height))
         numRenders += 1
-        print(numRenders)
+        //print(numRenders)
         fillBuffer(device: device, buffer: &numBuffer, data: [numRenders])
         
         var randomTexture = createRandomTexture(device: device, width: width, height: height)

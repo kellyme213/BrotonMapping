@@ -278,18 +278,16 @@ func createRandomTexture(device: MTLDevice, width: Int, height: Int, usage: MTLT
     textureDescriptor.usage = usage
     textureDescriptor.storageMode = .managed
     
-    var randomValues: [SIMD3<Float>] = []
+    var randomValues: [SIMD4<Float>] = []
     
     for _ in 0 ..< width * height
     {
-        randomValues.append(SIMD3<Float>(Float(drand48()), Float(drand48()), Float(drand48())))
+        randomValues.append(SIMD4<Float>(Float(drand48()), Float(drand48()), Float(drand48()), Float(drand48())))
     }
-    
-    assert(randomValues.count == width * height)
-    
+        
     let texture = device.makeTexture(descriptor: textureDescriptor)!
     
-    texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: &randomValues, bytesPerRow: MemoryLayout<SIMD3<Float>>.stride * width)
+    texture.replace(region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0, withBytes: &randomValues, bytesPerRow: MemoryLayout<SIMD4<Float>>.stride * width)
     
     return texture
     
@@ -309,13 +307,17 @@ extension Renderer
         
         var m = Material()
         m.kDiffuse = SIMD4<Float>(1.0, 0.8, 0.0, 1.0)
-        m.absorbiness = 0.0
+        m.absorbiness = 0.8
+        m.reflectivity = 1.0
         
         createRing(radius: 0.95, subdivisions: 100, height: 0.1, thiccness: 0.05, material: m, triangles: &triangles)
         
         var m2 = Material()
         m2.kDiffuse = SIMD4<Float>(150.0 / 255.0, 75.0 / 255.0, 0.0, 1.0)
         m2.kSpecular = SIMD4<Float>(0.1, 0.1, 0.1, 1.0)
+        m2.absorbiness = 0.3
+        m2.reflectivity = 0.0
+        
         
         let width: Float = 2.4
         let height: Float = 2.4
@@ -365,6 +367,7 @@ extension Renderer
         let p8 = SIMD3<Float>( width / 2.0, -width / 2.0, -width / 2.0)
         
         var m = Material()
+        m.kDiffuse = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
         
         var redM = Material()
         redM.kDiffuse = SIMD4<Float>(1.0, 0.0, 0.0, 1.0)
@@ -376,6 +379,14 @@ extension Renderer
         redM.kSpecular = SIMD4<Float>(0.0, 0.0, 0.0, 1.0)
         blueM.kSpecular = SIMD4<Float>(0.0, 0.0, 0.0, 1.0)
         
+
+        blueM.absorbiness = 0.4
+        redM.absorbiness = 0.4
+        m.absorbiness = 0.4
+        blueM.reflectivity = 0.1
+        redM.reflectivity = 0.1
+        m.reflectivity = 0.1
+
         
         triangles.append(createTriangleFromPoints(a: p2, b: p3, c: p1, m: m))
         triangles.append(createTriangleFromPoints(a: p1, b: p3, c: p4, m: m))
@@ -396,9 +407,28 @@ extension Renderer
         cameraPosition = SIMD3<Float>(0.0, 0.0, -1.0)
         cameraDirection = SIMD3<Float>(0.0, 0.0, 1.0)
         
-        let light1 = Light(position: SIMD3<Float>(0.0, 0.0, -1.5), color: SIMD4<Float>(0.5, 0.5, 0.5, 1.0), lightType: POINT_LIGHT)
-        lights.append(light1)
+        var light1 = Light(position: SIMD3<Float>(0.0, width / 2.0 - 0.01, 0.0), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), lightType: POINT_LIGHT)
+        light1.direction = normalize(SIMD3<Float>(0.0, -1.0, 0.0))
         
+        let right = normalize(cross(light1.direction, SIMD3<Float>(0.0, 0.0, 1.0)))
+        let up = -normalize(cross(right, light1.direction))
+        
+        
+        var light2 = Light(position: SIMD3<Float>(0.0, 0.0, -width / 2.0 + 0.01), color: SIMD4<Float>(10.0, 10.0, 10.0, 1.0), lightType: POINT_LIGHT)
+        light2.direction = normalize(SIMD3<Float>(0.0, 0.0, 1.0))
+        
+        let right2 = normalize(cross(light2.direction, SIMD3<Float>(0.0, 1, 0.0)))
+        let up2 = -normalize(cross(right2, light2.direction))
+        
+        light1.right = right
+        light1.up = up
+        
+        light2.right = right2
+        light2.up = up2
+        
+        lights.append(light1)
+        lights.append(light2)
+
         materialArray.removeAll()
         fillTriangleBuffer(device: device, materialArray: &materialArray, triangles: triangles, vertexBuffer: &vertexInBuffer, materialBuffer: &materialBuffer)
         fillLightBuffer()
