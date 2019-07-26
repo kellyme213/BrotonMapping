@@ -53,8 +53,8 @@ class Renderer: NSObject, MTKViewDelegate {
         
         self.renderView = renderView
         setup()
-        createRingStuff()
-        //createBoxStuff()
+        //createRingStuff()
+        createBoxStuff()
         
         rayTracer = RayTracer(device: device)
         rayTracer.generateAccelerationStructure(triangles: triangles, lights: lights)
@@ -181,6 +181,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         commandBuffer.present(renderView.currentDrawable!)
         commandBuffer.commit()
+
     }
     
     func keyDown(with theEvent: NSEvent) {

@@ -27,6 +27,12 @@ class RenderView: MTKView
         renderer = Renderer(renderView: self)
         self.delegate = renderer
         renderer.mtkView(self, drawableSizeWillChange: self.drawableSize)
+        
+        
+        
+
+        
+        
     }
     
     required init(coder: NSCoder) {

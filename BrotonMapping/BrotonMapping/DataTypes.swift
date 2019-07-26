@@ -111,3 +111,9 @@ struct Intersection {
     var coordinates: SIMD2<Float>
 }
 
+struct Photon {
+    var positon: SIMD3<Float>
+    var color: SIMD3<Float>
+    var incomingDirection: SIMD3<Float>
+}
+
