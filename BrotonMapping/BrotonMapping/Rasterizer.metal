@@ -7,7 +7,6 @@
 //
 
 #include <metal_stdlib>
-#include <simd/simd.h>
 #include "ShaderStructs.h"
 
 using namespace metal;

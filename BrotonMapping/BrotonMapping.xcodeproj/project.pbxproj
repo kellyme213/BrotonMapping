@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4C2FC7AA22EABBB6004D56DB /* PhotonMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C2FC7A922EABBB6004D56DB /* PhotonMapper.swift */; };
+		4C2FC7AC22ED7BB9004D56DB /* PhotonMapper.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4C2FC7AB22ED7BB9004D56DB /* PhotonMapper.metal */; };
 		4C68FA7822D5845300DF023A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA7722D5845300DF023A /* AppDelegate.swift */; };
 		4C68FA7A22D5845500DF023A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4C68FA7922D5845500DF023A /* Assets.xcassets */; };
 		4C68FA7D22D5845500DF023A /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4C68FA7B22D5845500DF023A /* Main.storyboard */; };
@@ -16,16 +17,17 @@
 		4C68FA8A22D5884F00DF023A /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8922D5884F00DF023A /* Renderer.swift */; };
 		4C68FA8C22D5901F00DF023A /* DataTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8B22D5901F00DF023A /* DataTypes.swift */; };
 		4C68FA8E22D591CF00DF023A /* MetalKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8D22D591CF00DF023A /* MetalKeys.swift */; };
-		4C68FA9022D5924000DF023A /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8F22D5924000DF023A /* Shaders.metal */; };
+		4C68FA9022D5924000DF023A /* Rasterizer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8F22D5924000DF023A /* Rasterizer.metal */; };
 		4C71911622E043A9007F368D /* UtilityFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C71911522E043A9007F368D /* UtilityFunctions.swift */; };
 		4C72D1E022E6D6940097F168 /* TextureReducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C72D1DF22E6D6940097F168 /* TextureReducer.swift */; };
 		4C72D1E222E6D7AB0097F168 /* TextureReducer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4C72D1E122E6D7AB0097F168 /* TextureReducer.metal */; };
 		4CA2BB1922DBEFF200A39BE7 /* RayTracer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA2BB1822DBEFF200A39BE7 /* RayTracer.swift */; };
-		4CA2BB1B22DBFA2C00A39BE7 /* Compute.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4CA2BB1A22DBFA2C00A39BE7 /* Compute.metal */; };
+		4CA2BB1B22DBFA2C00A39BE7 /* RayTracer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4CA2BB1A22DBFA2C00A39BE7 /* RayTracer.metal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		4C2FC7A922EABBB6004D56DB /* PhotonMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PhotonMapper.swift; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/PhotonMapper.swift; sourceTree = "<group>"; };
+		4C2FC7AB22ED7BB9004D56DB /* PhotonMapper.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; name = PhotonMapper.metal; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/PhotonMapper.metal; sourceTree = "<group>"; };
 		4C68FA7422D5845300DF023A /* BrotonMapping.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BrotonMapping.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C68FA7722D5845300DF023A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		4C68FA7922D5845500DF023A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -37,12 +39,12 @@
 		4C68FA8922D5884F00DF023A /* Renderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Renderer.swift; sourceTree = "<group>"; };
 		4C68FA8B22D5901F00DF023A /* DataTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTypes.swift; sourceTree = "<group>"; };
 		4C68FA8D22D591CF00DF023A /* MetalKeys.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalKeys.swift; sourceTree = "<group>"; };
-		4C68FA8F22D5924000DF023A /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
+		4C68FA8F22D5924000DF023A /* Rasterizer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Rasterizer.metal; sourceTree = "<group>"; };
 		4C71911522E043A9007F368D /* UtilityFunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UtilityFunctions.swift; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/UtilityFunctions.swift; sourceTree = "<group>"; };
 		4C72D1DF22E6D6940097F168 /* TextureReducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TextureReducer.swift; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/TextureReducer.swift; sourceTree = "<group>"; };
 		4C72D1E122E6D7AB0097F168 /* TextureReducer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; name = TextureReducer.metal; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/TextureReducer.metal; sourceTree = "<group>"; };
 		4CA2BB1822DBEFF200A39BE7 /* RayTracer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RayTracer.swift; sourceTree = "<group>"; };
-		4CA2BB1A22DBFA2C00A39BE7 /* Compute.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Compute.metal; sourceTree = "<group>"; };
+		4CA2BB1A22DBFA2C00A39BE7 /* RayTracer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = RayTracer.metal; sourceTree = "<group>"; };
 		4CA2BB1C22DBFBED00A39BE7 /* ShaderStructs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ShaderStructs.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -82,9 +84,10 @@
 				4C68FA8722D5857B00DF023A /* RenderView.swift */,
 				4C68FA8922D5884F00DF023A /* Renderer.swift */,
 				4C2FC7A922EABBB6004D56DB /* PhotonMapper.swift */,
+				4C2FC7AB22ED7BB9004D56DB /* PhotonMapper.metal */,
 				4CA2BB1822DBEFF200A39BE7 /* RayTracer.swift */,
-				4C68FA8F22D5924000DF023A /* Shaders.metal */,
-				4CA2BB1A22DBFA2C00A39BE7 /* Compute.metal */,
+				4C68FA8F22D5924000DF023A /* Rasterizer.metal */,
+				4CA2BB1A22DBFA2C00A39BE7 /* RayTracer.metal */,
 				4CA2BB1C22DBFBED00A39BE7 /* ShaderStructs.h */,
 				4C68FA8D22D591CF00DF023A /* MetalKeys.swift */,
 				4C68FA8B22D5901F00DF023A /* DataTypes.swift */,
@@ -175,10 +178,11 @@
 				4C72D1E222E6D7AB0097F168 /* TextureReducer.metal in Sources */,
 				4C68FA8C22D5901F00DF023A /* DataTypes.swift in Sources */,
 				4C68FA8822D5857B00DF023A /* RenderView.swift in Sources */,
-				4C68FA9022D5924000DF023A /* Shaders.metal in Sources */,
-				4CA2BB1B22DBFA2C00A39BE7 /* Compute.metal in Sources */,
+				4C68FA9022D5924000DF023A /* Rasterizer.metal in Sources */,
+				4CA2BB1B22DBFA2C00A39BE7 /* RayTracer.metal in Sources */,
 				4C2FC7AA22EABBB6004D56DB /* PhotonMapper.swift in Sources */,
 				4C72D1E022E6D6940097F168 /* TextureReducer.swift in Sources */,
+				4C2FC7AC22ED7BB9004D56DB /* PhotonMapper.metal in Sources */,
 				4C71911622E043A9007F368D /* UtilityFunctions.swift in Sources */,
 				4CA2BB1922DBEFF200A39BE7 /* RayTracer.swift in Sources */,
 			);
