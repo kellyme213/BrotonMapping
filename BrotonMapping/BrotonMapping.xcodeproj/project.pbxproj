@@ -18,6 +18,7 @@
 		4C68FA8C22D5901F00DF023A /* DataTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8B22D5901F00DF023A /* DataTypes.swift */; };
 		4C68FA8E22D591CF00DF023A /* MetalKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8D22D591CF00DF023A /* MetalKeys.swift */; };
 		4C68FA9022D5924000DF023A /* Rasterizer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4C68FA8F22D5924000DF023A /* Rasterizer.metal */; };
+		4C6DEB1722F3FCD000E03113 /* PhotonRasterizer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4C6DEB1622F3FCD000E03113 /* PhotonRasterizer.metal */; };
 		4C71911622E043A9007F368D /* UtilityFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C71911522E043A9007F368D /* UtilityFunctions.swift */; };
 		4C72D1E022E6D6940097F168 /* TextureReducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C72D1DF22E6D6940097F168 /* TextureReducer.swift */; };
 		4C72D1E222E6D7AB0097F168 /* TextureReducer.metal in Sources */ = {isa = PBXBuildFile; fileRef = 4C72D1E122E6D7AB0097F168 /* TextureReducer.metal */; };
@@ -40,6 +41,7 @@
 		4C68FA8B22D5901F00DF023A /* DataTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataTypes.swift; sourceTree = "<group>"; };
 		4C68FA8D22D591CF00DF023A /* MetalKeys.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalKeys.swift; sourceTree = "<group>"; };
 		4C68FA8F22D5924000DF023A /* Rasterizer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Rasterizer.metal; sourceTree = "<group>"; };
+		4C6DEB1622F3FCD000E03113 /* PhotonRasterizer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PhotonRasterizer.metal; sourceTree = "<group>"; };
 		4C71911522E043A9007F368D /* UtilityFunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UtilityFunctions.swift; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/UtilityFunctions.swift; sourceTree = "<group>"; };
 		4C72D1DF22E6D6940097F168 /* TextureReducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TextureReducer.swift; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/TextureReducer.swift; sourceTree = "<group>"; };
 		4C72D1E122E6D7AB0097F168 /* TextureReducer.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; name = TextureReducer.metal; path = ../../../../../../../../../System/Volumes/Data/Users/Michael/Desktop/Files/Programs/Swift/BrotonMapping/BrotonMapping/BrotonMapping/TextureReducer.metal; sourceTree = "<group>"; };
@@ -83,10 +85,11 @@
 				4C68FA7B22D5845500DF023A /* Main.storyboard */,
 				4C68FA8722D5857B00DF023A /* RenderView.swift */,
 				4C68FA8922D5884F00DF023A /* Renderer.swift */,
+				4C68FA8F22D5924000DF023A /* Rasterizer.metal */,
+				4C6DEB1622F3FCD000E03113 /* PhotonRasterizer.metal */,
 				4C2FC7A922EABBB6004D56DB /* PhotonMapper.swift */,
 				4C2FC7AB22ED7BB9004D56DB /* PhotonMapper.metal */,
 				4CA2BB1822DBEFF200A39BE7 /* RayTracer.swift */,
-				4C68FA8F22D5924000DF023A /* Rasterizer.metal */,
 				4CA2BB1A22DBFA2C00A39BE7 /* RayTracer.metal */,
 				4CA2BB1C22DBFBED00A39BE7 /* ShaderStructs.h */,
 				4C68FA8D22D591CF00DF023A /* MetalKeys.swift */,
@@ -184,6 +187,7 @@
 				4C72D1E022E6D6940097F168 /* TextureReducer.swift in Sources */,
 				4C2FC7AC22ED7BB9004D56DB /* PhotonMapper.metal in Sources */,
 				4C71911622E043A9007F368D /* UtilityFunctions.swift in Sources */,
+				4C6DEB1722F3FCD000E03113 /* PhotonRasterizer.metal in Sources */,
 				4CA2BB1922DBEFF200A39BE7 /* RayTracer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

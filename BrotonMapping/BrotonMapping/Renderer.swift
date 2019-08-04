@@ -46,6 +46,10 @@ class Renderer: NSObject, MTKViewDelegate {
     
     var renderMode = RASTERIZATION_MODE
     var rayTracer: RayTracer!
+    var photonMapper: PhotonMapper!
+    var photonRenderPassDescriptor: MTLRenderPassDescriptor!
+    var photonRenderPipelineDescriptor: MTLRenderPipelineDescriptor!
+    var photonRenderPipelineState: MTLRenderPipelineState!
     
     
     init?(renderView: RenderView) {
@@ -53,12 +57,18 @@ class Renderer: NSObject, MTKViewDelegate {
         
         self.renderView = renderView
         setup()
-        //createRingStuff()
-        createBoxStuff()
+        createRingStuff()
+        //createBoxStuff()
         
         rayTracer = RayTracer(device: device)
         rayTracer.generateAccelerationStructure(triangles: triangles, lights: lights)
         rayTracer.generateRayBuffer(size: renderView.frame.size)
+        
+        
+        photonMapper = PhotonMapper(device: device, smallWidth: Int(renderView.frame.width), smallHeight: Int(renderView.frame.width), triangles: triangles, lights: lights)
+        
+        //photonMapper.generatePhotons()
+        //commandBuffer.commit()
     }
     
     func createShaders()
@@ -74,6 +84,18 @@ class Renderer: NSObject, MTKViewDelegate {
         renderPipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
         
         renderPipelineState = try! device.makeRenderPipelineState(descriptor: renderPipelineDescriptor)
+        
+        
+        let photonVert = defaultLibrary.makeFunction(name: "photonVertexShader")!
+        let photonFrag = defaultLibrary.makeFunction(name: "photonFragmentShader")!
+
+        photonRenderPipelineDescriptor = MTLRenderPipelineDescriptor()
+        photonRenderPipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+        photonRenderPipelineDescriptor.vertexFunction = photonVert
+        photonRenderPipelineDescriptor.fragmentFunction = photonFrag
+        photonRenderPipelineDescriptor.depthAttachmentPixelFormat = .depth32Float
+        
+        photonRenderPipelineState = try! device.makeRenderPipelineState(descriptor: photonRenderPipelineDescriptor)
     }
     
     func setup()
@@ -174,6 +196,21 @@ class Renderer: NSObject, MTKViewDelegate {
             commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: triangles.count * 3)
             commandEncoder.endEncoding()
         }
+        if (renderMode == PHOTON_RASTERIZATION_MODE)
+        {
+            //photonMapper.generatePhotons()
+            createRenderPassDescriptor(texture: renderView.currentDrawable!.texture)
+            let commandEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
+            commandEncoder.setRenderPipelineState(photonRenderPipelineState)
+            commandEncoder.setDepthStencilState(depthStencilState)
+            commandEncoder.setCullMode(.back)
+
+            commandEncoder.setVertexBuffer(photonMapper.photonVertexBuffer, offset: 0, index: 0)
+            commandEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
+            
+            commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: photonMapper.numPhotons * 3)
+            commandEncoder.endEncoding()
+        }
         if (renderMode == RAY_TRACING_MODE || renderMode == PHOTON_MAPPING_MODE)
         {
             rayTracer.traceRays(texture: renderView.currentDrawable!.texture, commandBuffer: commandBuffer)
@@ -239,6 +276,14 @@ class Renderer: NSObject, MTKViewDelegate {
         else if (theEvent.keyCode == KEY_P)
         {
             renderMode = PHOTON_MAPPING_MODE
+        }
+        else if (theEvent.keyCode == KEY_L)
+        {
+            renderMode = PHOTON_RASTERIZATION_MODE
+        }
+        else if (theEvent.keyCode == KEY_M)
+        {
+            photonMapper.generatePhotons()
         }
         
         updateUniformMatrices()

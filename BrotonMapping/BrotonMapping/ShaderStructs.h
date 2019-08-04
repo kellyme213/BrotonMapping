@@ -14,7 +14,7 @@
 #define RAY_MASK_PRIMARY   3
 #define RAY_MASK_SHADOW    1
 #define RAY_MASK_SECONDARY 1
-
+using namespace metal;
 
 
 constant int8_t DIRECTIONAL_LIGHT = 0;
@@ -126,6 +126,46 @@ typedef struct
     float3 position;
     float3 color;
     float3 incomingDirection;
+    float3 surfaceNormal;
 } Photon;
+
+typedef struct
+{
+    float4 position;
+    float3 color;
+} PhotonVertex;
+
+inline uint index(uint2 tid, uint width) {
+    return tid.y * width + tid.x;
+}
+
+inline float3 sampleCosineWeightedHemisphere(float2 u) {
+    float phi = 2.0f * M_PI_F * u.x;
+    float cos_phi;
+    float sin_phi = sincos(phi, cos_phi);
+    float cos_theta = sqrt(u.y);
+    float sin_theta = sqrt(1.0f - cos_theta * cos_theta);
+    return float3(sin_theta * cos_phi, cos_theta, sin_theta * sin_phi);
+}
+
+inline float3 alignHemisphereWithNormal(float3 sample, float3 normal) {
+    float3 up = normal;
+    float3 right = normalize(cross(normal, float3(0.0072f, 1.0f, 0.0034f)));
+    float3 forward = cross(right, up);
+    return sample.x * right + sample.y * up + sample.z * forward;
+}
+
+inline float3 getNewDirection(float3 surfaceNormal, float2 u,
+float3 incomingDirection, float reflectivity) {
+    
+    float3 randomNormal = sampleCosineWeightedHemisphere(u);
+    randomNormal = alignHemisphereWithNormal(randomNormal, surfaceNormal);
+    
+    float3 reflectedNormal = reflect(incomingDirection, surfaceNormal);
+    
+    
+    return normalize(reflectivity         * reflectedNormal +
+                     (1.0 - reflectivity) * randomNormal);
+}
 
 #endif /* ShaderStructs_h */

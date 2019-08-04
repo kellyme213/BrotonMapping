@@ -10,6 +10,10 @@ import Foundation
 import simd
 import Metal
 import MetalKit
+import MetalPerformanceShaders
+
+let rayStride = 48;
+let intersectionStride = MemoryLayout<MPSIntersectionDistancePrimitiveIndexCoordinates>.stride
 
 // Generic matrix math utility functions
 func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {

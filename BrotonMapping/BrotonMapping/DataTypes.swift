@@ -23,6 +23,7 @@ let MAX_LIGHTS: Int = 8
 let RASTERIZATION_MODE = 0
 let RAY_TRACING_MODE = 1
 let PHOTON_MAPPING_MODE = 2
+let PHOTON_RASTERIZATION_MODE = 3
 
 struct Vertex
 {
@@ -115,5 +116,25 @@ struct Photon {
     var positon: SIMD3<Float>
     var color: SIMD3<Float>
     var incomingDirection: SIMD3<Float>
+}
+
+struct PhotonUniforms {
+    var widthPerRay: uint
+    var heightPerRay: uint
+    var textureWidth: uint
+    var textureHeight: uint
+    var heightAbovePlane: Float
+    var sizeOfPatch: Float
+}
+
+struct PhotonTriangleUniforms {
+    var width: uint
+    var height: uint
+    var radius: Float
+}
+
+struct PhotonVertex {
+    var position: SIMD4<Float>
+    var color: SIMD3<Float>
 }
 

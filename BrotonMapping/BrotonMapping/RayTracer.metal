@@ -27,7 +27,7 @@ inline T interpolateVertexAttribute(device T *attributes, Intersection intersect
 
 
 
-inline void sampleAreaLight(device Light & light,
+inline void sampleAreaLight(constant Light & light,
                             float2 u,
                             float3 position,
                             thread float3 & lightDirection,
@@ -48,34 +48,6 @@ inline void sampleAreaLight(device Light & light,
     
 }
 
-inline float3 sampleCosineWeightedHemisphere(float2 u) {
-    float phi = 2.0f * M_PI_F * u.x;
-    float cos_phi;
-    float sin_phi = sincos(phi, cos_phi);
-    float cos_theta = sqrt(u.y);
-    float sin_theta = sqrt(1.0f - cos_theta * cos_theta);
-    return float3(sin_theta * cos_phi, cos_theta, sin_theta * sin_phi);
-}
-
-inline float3 alignHemisphereWithNormal(float3 sample, float3 normal) {
-    float3 up = normal;
-    float3 right = normalize(cross(normal, float3(0.0072f, 1.0f, 0.0034f)));
-    float3 forward = cross(right, up);
-    return sample.x * right + sample.y * up + sample.z * forward;
-}
-
-inline float3 getNewDirection(float3 surfaceNormal, float2 u,
-                              float3 incomingDirection, float reflectivity) {
-    
-    float3 randomNormal = sampleCosineWeightedHemisphere(u);
-    randomNormal = alignHemisphereWithNormal(randomNormal, surfaceNormal);
-    
-    float3 reflectedNormal = reflect(incomingDirection, surfaceNormal);
-    
-    
-    return normalize(reflectivity         * reflectedNormal +
-                     (1.0 - reflectivity) * randomNormal);
-}
 
 
 
@@ -144,7 +116,7 @@ shadeKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
             device   Material*              materials     [[buffer(4)]],
             device   float*                 energy        [[buffer(5)]],
             device   Ray*                   shadowRays    [[buffer(6)]],
-            device   array<Light, 8>&       lights        [[buffer(7)]],
+            constant array<Light, 8>&       lights        [[buffer(7)]],
             //texture2d<float, access::write> dstTex        [[texture(0)]],
             texture2d<float, access::read>  randTex       [[texture(0)]],
             uint2                           tid           [[thread_position_in_grid]])
@@ -189,7 +161,8 @@ shadeKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
            
            device Ray& shadowRay = shadowRays[uniforms.numLights * rayIdx + x];
            
-           shadowRay.color = (energy[rayIdx]) * (1.0 - 0.0) * ray.color * material.kDiffuse.xyz * lightColor;
+           //1.0 - absorbiness was a term
+           shadowRay.color = (energy[rayIdx]) * ray.color * material.kDiffuse.xyz * lightColor;
            
            
            shadowRay.direction = packed_float3(normalize(lightDirection));
@@ -233,7 +206,7 @@ shadeKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
 kernel void
 aggregateKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
                 device   Ray*                   shadowRays    [[buffer(1)]],
-                device   Intersection*                 intersections [[buffer(2)]],
+                device   Intersection*          intersections [[buffer(2)]],
                 texture2d<float, access::read>  srcTex        [[texture(0)]],
                 texture2d<float, access::write> dstTex        [[texture(1)]],
                 uint2                           tid           [[thread_position_in_grid]])

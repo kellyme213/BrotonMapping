@@ -7,6 +7,7 @@
 //
 
 #include <metal_stdlib>
+#import "ShaderStructs.h"
 using namespace metal;
 
 
@@ -28,11 +29,6 @@ typedef struct {
     float area;
     float intensity;
 } PhotonTextureUniforms;
-
-
-inline uint index(uint2 tid, uint width) {
-    return tid.y * width + tid.x;
-}
 
 constant float colorScale = 255.0;
 

@@ -14,8 +14,6 @@ import simd
 
 class RayTracer
 {
-    let rayStride = 48;
-    let intersectionStride = MemoryLayout<MPSIntersectionDistancePrimitiveIndexCoordinates>.stride
     
     var rayPipelineState: MTLComputePipelineState!
     var shadePipelineState: MTLComputePipelineState!
