@@ -341,8 +341,8 @@ extension Renderer
         let right = normalize(cross(light1.direction, SIMD3<Float>(0, 1, 0)))
         let up = -normalize(cross(right, light1.direction))
         
-        light1.right = right
-        light1.up = up
+        light1.right = 1.0 * right
+        light1.up = 1.0 * up
         
         lights.append(light1)
         

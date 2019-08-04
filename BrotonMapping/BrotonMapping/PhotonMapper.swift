@@ -13,12 +13,11 @@ import MetalPerformanceShaders
 
 class PhotonMapper
 {
-    //let rayStride = 48;
     var device: MTLDevice!
     
     var collectionRaysPerShadeRayWidth: Int = 8
-    var photonsPerLightWidth: Int = 128
-    var numPhotonBounces: Int = 4
+    var photonsPerLightWidth: Int = 1024
+    var numPhotonBounces: Int = 3
     
     var largeTexture: MTLTexture!
     var largeRayBuffer: MTLBuffer!
@@ -143,7 +142,7 @@ class PhotonMapper
         fillBuffer(device: device, buffer: &largeIntersectionBuffer, data: [], size: MemoryLayout<Intersection>.stride * largeWidth * largeHeight)
     }
     
-    func generatePhotons()//commandBuffer: MTLCommandBuffer)
+    func generatePhotons()
     {
         let commandQueue = device.makeCommandQueue()!
         
@@ -214,23 +213,20 @@ class PhotonMapper
         
         threadCountGroup = MTLSize()
         
-        let w = numPhotonBounces * photonsPerLightWidth * photonsPerLightWidth
-        let h = lights.count
+        let w = numPhotonBounces * photonsPerLightWidth
+        let h = lights.count * photonsPerLightWidth
         
         threadCountGroup.width = (w + threadGroupSize.width - 1) / threadGroupSize.width
         threadCountGroup.height = (h + threadGroupSize.height - 1) / threadGroupSize.height
         threadCountGroup.depth = 1
         
         
-        var photonVertexUniforms = PhotonTriangleUniforms(width: uint(w), height: uint(h), radius: 0.01)
+        var photonVertexUniforms = PhotonTriangleUniforms(width: uint(w), height: uint(h), radius: 0.001)
         
         commandEncoder.setBytes(&photonVertexUniforms, length: MemoryLayout<PhotonTriangleUniforms>.stride, index: 2)
         commandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
         commandEncoder.endEncoding()
         
-        commandBuffer.addCompletedHandler { _ in
-            //print("asdfa")
-        }
         commandBuffer.commit()
 
         

@@ -46,8 +46,11 @@ photonRaysFromLight(constant Light&                light       [[buffer(0)]],
             float2 uv = (float2)pixel / float2(uniforms.textureWidth, uniforms.textureHeight);
             uv = uv * 2.0f - 1.0f;
             
+            float2 rand2 = randTex.read(tid).yz;
+            rand2 = 0.1 * (rand2 * 2.0f - 1.0f);
+            
             ray.origin = light.position + (uv.x * light.right + uv.y * light.up);
-            ray.direction = light.direction;
+            ray.direction = normalize(light.direction + (rand2.x * light.right + rand2.y * light.up));
             ray.mask = RAY_MASK_PRIMARY;
             ray.maxDistance = INFINITY;
             ray.color = light.color.xyz;
@@ -82,14 +85,17 @@ photonToTriangle(
         device PhotonVertex& v1 = vertices[3 * photonIndex + 1];
         device PhotonVertex& v2 = vertices[3 * photonIndex + 2];
         
-        v0.position = float4(p2, 1.0);
-        v0.color = photon.color;
         
-        v1.position = float4(p1, 1.0);
-        v1.color = photon.color;
+        float shouldDraw = 1.0;//length(photon.incomingDirection) > 0.001f;
+        
+        v0.position = float4(shouldDraw * p2, 1.0);
+        v0.color = shouldDraw * photon.color;
+        
+        v1.position = float4(shouldDraw * p1, 1.0);
+        v1.color = shouldDraw * photon.color;
 
-        v2.position = float4(p0, 1.0);
-        v2.color = photon.color;
+        v2.position = float4(shouldDraw * p0, 1.0);
+        v2.color = shouldDraw * photon.color;
     }
 }
 
@@ -137,7 +143,7 @@ generatePhotons(
             
             outputPhoton.incomingDirection = inputRay.direction;
             outputPhoton.position = intersectionPosition;
-            outputPhoton.color = energy[inputIndex] * inputRay.color;// * mat.kDiffuse.xyz;
+            outputPhoton.color = energy[inputIndex] * inputRay.color;
             outputPhoton.surfaceNormal = intersectionNormal;
             
             
@@ -146,7 +152,7 @@ generatePhotons(
             
             inputRay.color *= mat.kDiffuse.xyz;
             
-            float2 rand = randTex.read(tid).yz;
+            float2 rand = randTex.read(tid).xy;
             
             float3 newDirection = getNewDirection(intersectionNormal, rand,
                                                inputRay.direction, mat.reflectivity);

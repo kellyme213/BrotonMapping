@@ -66,9 +66,6 @@ class Renderer: NSObject, MTKViewDelegate {
         
         
         photonMapper = PhotonMapper(device: device, smallWidth: Int(renderView.frame.width), smallHeight: Int(renderView.frame.width), triangles: triangles, lights: lights)
-        
-        //photonMapper.generatePhotons()
-        //commandBuffer.commit()
     }
     
     func createShaders()
