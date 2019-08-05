@@ -25,12 +25,9 @@ class RenderView: MTKView
         
         self.framebufferOnly = false
         renderer = Renderer(renderView: self)
+        renderer.rayTracer.photonMapper = renderer.photonMapper
         self.delegate = renderer
         renderer.mtkView(self, drawableSizeWillChange: self.drawableSize)
-        
-        
-        
-
         
         
     }

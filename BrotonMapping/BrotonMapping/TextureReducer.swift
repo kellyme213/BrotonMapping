@@ -19,8 +19,8 @@ struct PhotonTextureUniforms
 {
     var width: uint
     var height: uint
-    var area: Float
-    var scale: uint
+    var area: Float = patchSize
+    var intensity: Float = 0.05
 }
 
 struct Color
@@ -147,8 +147,11 @@ class TextureReducer
         commandEncoder.setBuffer(buffers[buffers.count - 1], offset: 0, index: 0)
         commandEncoder.setTexture(endTexture, index: 0)
         
-        uniform = TextureUniforms(width: uint(width), height: uint(height))
-        commandEncoder.setBytes(&uniform, length: MemoryLayout<TextureUniforms>.stride, index: 1)
+        //NOT CORRECT should be PhotonTextureUniforms
+        var photonUniform = PhotonTextureUniforms(width: uint(endTexture.width), height: uint(endTexture.height))
+        
+        //uniform = TextureUniforms(width: uint(width), height: uint(height))
+        commandEncoder.setBytes(&photonUniform, length: MemoryLayout<PhotonTextureUniforms>.stride, index: 1)
         
         threadCountGroup = MTLSize()
         threadCountGroup.width = (width + threadGroupSize.width - 1) / threadGroupSize.width

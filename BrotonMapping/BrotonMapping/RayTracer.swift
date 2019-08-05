@@ -43,6 +43,11 @@ class RayTracer
     var numRenders: Int32 = 1;
     var cachedRender: MTLTexture!
     
+    var photonMapper: PhotonMapper!
+    var shouldUsePhotonMap = false
+    var causticTexture: MTLTexture!
+    var blackCausticTexture: MTLTexture!
+
     init(device: MTLDevice) {
         self.device = device
         setup()
@@ -158,14 +163,15 @@ class RayTracer
         textureDescriptor.width = width
         textureDescriptor.height = height
         textureDescriptor.pixelFormat = .bgra8Unorm
-        textureDescriptor.usage = .unknown
+        textureDescriptor.usage = .init(arrayLiteral: [.shaderRead, .shaderWrite])
         textureDescriptor.storageMode = .managed
         
         
         let tex1 = device.makeTexture(descriptor: textureDescriptor)!
         let tex2 = device.makeTexture(descriptor: textureDescriptor)!
-        
-        
+        causticTexture = device.makeTexture(descriptor: textureDescriptor)!
+        blackCausticTexture = device.makeTexture(descriptor: textureDescriptor)!
+
         shadowRenderTextures.append(tex1)
         shadowRenderTextures.append(tex2)
         
@@ -242,6 +248,13 @@ class RayTracer
             intersector.intersectionDataType = .distancePrimitiveIndexCoordinates
             intersector.encodeIntersection(commandBuffer: commandBuffer, intersectionType: .nearest, rayBuffer: rayBuffer, rayBufferOffset: 0, intersectionBuffer: intersectionBuffer, intersectionBufferOffset: 0, rayCount: width * height, accelerationStructure: accelerationStructure)
             
+            
+            if x == 0 && shouldUsePhotonMap
+            {
+                photonMapper.gatherPhotons(commandBuffer: commandBuffer, inputRayBuffer: rayBuffer, inputIntersectionBuffer: intersectionBuffer, causticTexture: causticTexture)
+            }
+            
+            
             computeCommandEncoder = commandBuffer.makeComputeCommandEncoder()
             computeCommandEncoder.setComputePipelineState(shadePipelineState)
             computeCommandEncoder.setBuffer(rayUniformBuffer, offset: 0, index: 0)
@@ -256,6 +269,14 @@ class RayTracer
             //computeCommandEncoder.setTexture(texture, index: 0)
             //need to deal with adding randomness on different bounces
             computeCommandEncoder.setTexture(randomTexture, index: 0)
+            if x == 0 && shouldUsePhotonMap
+            {
+                computeCommandEncoder.setTexture(causticTexture, index: 1)
+            }
+            else
+            {
+                computeCommandEncoder.setTexture(blackCausticTexture, index: 1)
+            }
             computeCommandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
             computeCommandEncoder.endEncoding()
             

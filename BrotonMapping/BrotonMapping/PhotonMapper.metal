@@ -62,6 +62,7 @@ photonToTriangle(
                  device   Photon*          photons              [[buffer(0)]],
                  device   PhotonVertex*    vertices             [[buffer(1)]],
                  constant PhotonTriangleUniforms&  uniforms     [[buffer(2)]],
+                 device   float3*          vertexPositions      [[buffer(3)]],
                           uint2            tid                  [[thread_position_in_grid]])
 {
     if (tid.x < uniforms.width && tid.y < uniforms.height)
@@ -86,16 +87,25 @@ photonToTriangle(
         device PhotonVertex& v2 = vertices[3 * photonIndex + 2];
         
         
-        float shouldDraw = 1.0;//length(photon.incomingDirection) > 0.001f;
+        float shouldDraw = (length(photon.incomingDirection) > 0.001f);
         
-        v0.position = float4(shouldDraw * p2, 1.0);
-        v0.color = shouldDraw * photon.color;
-        
-        v1.position = float4(shouldDraw * p1, 1.0);
-        v1.color = shouldDraw * photon.color;
+        p0 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p0;
+        p1 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p1;
+        p2 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p2;
 
-        v2.position = float4(shouldDraw * p0, 1.0);
-        v2.color = shouldDraw * photon.color;
+        
+        v0.position = float4(p2, 1.0);
+        v0.color = photon.color;
+        
+        v1.position = float4(p1, 1.0);
+        v1.color = photon.color;
+
+        v2.position = float4(p0, 1.0);
+        v2.color = photon.color;
+        
+        vertexPositions[3 * photonIndex + 0] = p2;
+        vertexPositions[3 * photonIndex + 1] = p1;
+        vertexPositions[3 * photonIndex + 2] = p0;
     }
 }
 
@@ -120,7 +130,7 @@ generatePhotons(
         const device Intersection& inputIntersection = inputIntersections[inputIndex];
         device Ray& inputRay = inputRays[inputIndex];
         
-        if (inputRay.maxDistance > 0.0f && inputIntersection.distance > 0.0f)
+        if (inputRay.maxDistance > 0.0f && inputIntersection.distance >= 0.0f)
         {
             float3 uvw = float3(inputIntersection.coordinates.x,
                                 inputIntersection.coordinates.y,
@@ -136,19 +146,19 @@ generatePhotons(
             
             float3 intersectionPosition = inputRay.origin + inputIntersection.distance * inputRay.direction;
             
-            device Photon& outputPhoton = outputPhotons[offset + inputIndex];
+            device Photon& outputPhoton = outputPhotons[inputIndex];
             
             const device VertexIn& inputVertex = inputVertices[3 * inputIntersection.primitiveIndex + 0];
             const device Material& mat = materials[inputVertex.materialNum];
             
+
             outputPhoton.incomingDirection = inputRay.direction;
             outputPhoton.position = intersectionPosition;
-            outputPhoton.color = energy[inputIndex] * inputRay.color;
+            outputPhoton.color = energy[inputIndex] * inputRay.color * mat.kDiffuse.xyz;
             outputPhoton.surfaceNormal = intersectionNormal;
             
-            
-            
             //energy[inputIndex] *= mat.absorbiness;
+            
             
             inputRay.color *= mat.kDiffuse.xyz;
             
@@ -163,8 +173,9 @@ generatePhotons(
         else
         {
             inputRay.maxDistance = -1.0f;
-            outputPhotons[offset + inputIndex].incomingDirection = float3(0.0f, 0.0f, 0.0f);
-            outputPhotons[offset + inputIndex].color = float3(0.0f);
+            outputPhotons[inputIndex].incomingDirection = float3(0.0f, 0.0f, 0.0f);
+            outputPhotons[inputIndex].color = float3(0.0f);
+            outputPhotons[inputIndex].position = float3(-10, -10, -10);
             //handle bad photons
         }
         
@@ -173,15 +184,14 @@ generatePhotons(
 
 
 kernel void
-generatePhotonCollectionRays(
+generatePhotonGatherRays(
                              device   Ray*             inputRays            [[buffer(0)]],
                              device   Intersection*    inputIntersections   [[buffer(1)]],
                              device   VertexIn*        inputVertices        [[buffer(2)]],
                              device   Ray*             outputRays           [[buffer(3)]],
-                             device   PhotonUniforms&  uniforms             [[buffer(4)]],
+                             constant PhotonUniforms&  uniforms             [[buffer(4)]],
                                       uint2            tid                  [[thread_position_in_grid]])
 {
-    
     if (tid.x < uniforms.textureWidth && tid.y < uniforms.textureHeight)
     {
         
@@ -191,11 +201,13 @@ generatePhotonCollectionRays(
         device Intersection& inputIntersection = inputIntersections[inputIndex];
         device Ray& inputRay = inputRays[inputIndex];
         
-        if (inputIntersection.distance > 0.0f)
+        if (inputIntersection.distance > 0.001f)
         {
             float2 localTID = float2(tid.x % uniforms.widthPerRay, tid.y % uniforms.heightPerRay);
             localTID -= float2(uniforms.widthPerRay / 2, uniforms.heightPerRay / 2);
-            localTID *= uniforms.sizeOfPatch;
+            //localTID *= uniforms.sizeOfPatch;
+            localTID /= float2(float(uniforms.widthPerRay), float(uniforms.heightPerRay));
+            //localTID = float2(0, 0);
             float3 uvw = float3(inputIntersection.coordinates.x,
                                 inputIntersection.coordinates.y,
                                 1.0 - inputIntersection.coordinates.x - inputIntersection.coordinates.y);
@@ -210,35 +222,54 @@ generatePhotonCollectionRays(
             
             float3 intersectionPoint = inputRay.origin + inputIntersection.distance * inputRay.direction;
             
-            intersectionPoint -= uniforms.heightAbovePlane * intersectionNormal;
+            intersectionPoint += uniforms.heightAbovePlane * intersectionNormal;
             
             float3 newRayForward = -normalize(intersectionNormal);
             //negative because the output ray is casting down onto the surface
             //opposite the intersection normal
             
-            float3 newRayRight = normalize(cross(newRayForward, float3(0.0f, 1.0f, 0.0f)));
+            float3 newRayRight = normalize(cross(newRayForward, float3(0.003f, 1.001f, 0.003f)));
             float3 newRayUp = normalize(cross(newRayRight, newRayForward));
+            
+            newRayRight *= uniforms.sizeOfPatch;
+            newRayUp *= uniforms.sizeOfPatch;
             
             float3 newRayOrigin = intersectionPoint + localTID.x * newRayRight + localTID.y * newRayUp;
             
             device Ray& outputRay = outputRays[index(tid, uniforms.textureWidth)];
             outputRay.origin = newRayOrigin;
             outputRay.direction = newRayForward;
-            
-            
-            
-            
-            
-            
+            outputRay.maxDistance = uniforms.heightAbovePlane * 1.001f;
+            outputRay.color = float3(1.0f);
+            outputRay.mask = RAY_MASK_PRIMARY;
         }
     }
+}
 
-    
-    
-    
-    
-    
-    
+
+
+kernel void
+generateGatherTexture(
+                      device   Ray*             inputRays            [[buffer(0)]],
+                      device   Intersection*    inputIntersections   [[buffer(1)]],
+                      device   PhotonVertex*    inputVertices        [[buffer(2)]],
+                      texture2d<float, access::write> dstTex         [[texture(0)]],
+                               uint2            tid                  [[thread_position_in_grid]]
+                      )
+{
+    if (tid.x < dstTex.get_width() && tid.y < dstTex.get_height())
+    {
+        int rayIndex = index(tid, dstTex.get_width());
+        
+        device Ray& inputRay = inputRays[rayIndex];
+        device Intersection& inputIntersection = inputIntersections[rayIndex];
+        
+        if (inputIntersection.distance > 0.0f)// && inputIntersection.distance <= inputRay.maxDistance)
+        {
+            float3 color = inputVertices[3 * inputIntersection.primitiveIndex + 0].color;
+            dstTex.write(float4(color, 1.0), tid);
+        }
+    }
 }
 
 

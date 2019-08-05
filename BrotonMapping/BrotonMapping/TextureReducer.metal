@@ -61,12 +61,12 @@ colorToTexture(
         device Color& color = colors[index(tid, uniforms.width)];
         
         float scaleFactor = colorScale;
-        scaleFactor *= (uniforms.area * uniforms.area);
+        //scaleFactor *= (uniforms.area * uniforms.area);
         scaleFactor /= uniforms.intensity;
         
-        float r = min(color.r / scaleFactor, 1.0);
-        float g = min(color.g / scaleFactor, 1.0);
-        float b = min(color.b / scaleFactor, 1.0);
+        float r = min(float(color.r) / scaleFactor, 1.0);
+        float g = min(float(color.g) / scaleFactor, 1.0);
+        float b = min(float(color.b) / scaleFactor, 1.0);
 
         float4 c = float4(r, g, b, 1.0);
         tex.write(c, tid);

@@ -117,8 +117,8 @@ shadeKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
             device   float*                 energy        [[buffer(5)]],
             device   Ray*                   shadowRays    [[buffer(6)]],
             constant array<Light, 8>&       lights        [[buffer(7)]],
-            //texture2d<float, access::write> dstTex        [[texture(0)]],
             texture2d<float, access::read>  randTex       [[texture(0)]],
+            texture2d<float, access::read>  causticTex    [[texture(1)]],
             uint2                           tid           [[thread_position_in_grid]])
 {
     //dstTex.write(float4(1.0, 0.0, 0.0, 1.0), tid);
@@ -162,8 +162,8 @@ shadeKernel(constant RayKernelUniforms&     uniforms      [[buffer(0)]],
            device Ray& shadowRay = shadowRays[uniforms.numLights * rayIdx + x];
            
            //1.0 - absorbiness was a term
-           shadowRay.color = (energy[rayIdx]) * ray.color * material.kDiffuse.xyz * lightColor;
-           
+           shadowRay.color = (energy[rayIdx]) * (ray.color * material.kDiffuse.xyz * lightColor + causticTex.read(tid).xyz);
+           //shadowRay.color += causticTex.read(tid).xyz;
            
            shadowRay.direction = packed_float3(normalize(lightDirection));
            

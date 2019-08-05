@@ -15,9 +15,9 @@ class PhotonMapper
 {
     var device: MTLDevice!
     
-    var collectionRaysPerShadeRayWidth: Int = 8
+    var collectionRaysPerShadeRayWidth: Int = 4
     var photonsPerLightWidth: Int = 1024
-    var numPhotonBounces: Int = 3
+    var numPhotonBounces: Int = 2
     
     var largeTexture: MTLTexture!
     var largeRayBuffer: MTLBuffer!
@@ -39,11 +39,18 @@ class PhotonMapper
     var photonGeneratorIntersector: MPSRayIntersector!
     var photonGeneratorPipelineState: MTLComputePipelineState!
     
+    var photonGathererAccelerationStructure: MPSTriangleAccelerationStructure!
+    var photonGathererVertexPositionBuffer: MTLBuffer!
+    var photonGathererIntersectionBuffer: MTLBuffer!
+    var photonGathererIntersector: MPSRayIntersector!
+    
     var photonVertexBuffer: MTLBuffer!
     
     var prflPipelineState: MTLComputePipelineState!
     var pttPipelineState: MTLComputePipelineState!
-    
+    var gpgrPipelineState: MTLComputePipelineState!
+    var ggtPipelineState: MTLComputePipelineState!
+
     var materials: [Material] = []
     var materialBuffer: MTLBuffer!
     var vertexBuffer: MTLBuffer!
@@ -52,6 +59,8 @@ class PhotonMapper
     
     
     var numPhotons: Int!
+    
+    var textureReducer: TextureReducer!
 
     
     
@@ -63,12 +72,16 @@ class PhotonMapper
         self.triangles = triangles
         self.lights = lights
         
+        textureReducer = TextureReducer(device: device)
+        
         createLargeStuff(smallWidth: smallWidth, smallHeight: smallHeight)
         
         numPhotons = self.lights.count * numPhotonBounces * photonsPerLightWidth * photonsPerLightWidth
-        print("Photons generated: " + String(numPhotons))
         photonBuffer = nil
         fillBuffer(device: device, buffer: &photonBuffer, data: [], size: MemoryLayout<Photon>.stride * numPhotons)
+        
+        photonGathererVertexPositionBuffer = nil
+        fillBuffer(device: device, buffer: &photonGathererVertexPositionBuffer, data: [], size: MemoryLayout<SIMD3<Float>>.stride * numPhotons * 3)
         
         generatePhotonGeneratorAccelerationStructure()
         
@@ -92,6 +105,12 @@ class PhotonMapper
  
         let pttFunction = defaultLibrary.makeFunction(name: "photonToTriangle")!
         pttPipelineState = try! device.makeComputePipelineState(function: pttFunction)
+        
+        let gpgrFunction = defaultLibrary.makeFunction(name: "generatePhotonGatherRays")!
+        gpgrPipelineState = try! device.makeComputePipelineState(function: gpgrFunction)
+     
+        let ggtFunction = defaultLibrary.makeFunction(name: "generateGatherTexture")!
+        ggtPipelineState = try! device.makeComputePipelineState(function: ggtFunction)
         
         
     }
@@ -123,6 +142,21 @@ class PhotonMapper
     }
     
     
+    func generatePhotonGathererAccelerationStructure()
+    {
+        photonGathererIntersector = MPSRayIntersector(device: device)
+        photonGathererIntersector.rayDataType = .originMaskDirectionMaxDistance
+        photonGathererIntersector.rayStride = rayStride
+        photonGathererIntersector.intersectionDataType = .distancePrimitiveIndexCoordinates
+        
+        photonGathererAccelerationStructure = MPSTriangleAccelerationStructure(device: device)
+        photonGathererAccelerationStructure.vertexBuffer = photonGathererVertexPositionBuffer
+        photonGathererAccelerationStructure.triangleCount = numPhotons
+        photonGathererAccelerationStructure.rebuild()
+        
+        print("Photon map created with " + String(numPhotons) + " photons.")
+    }
+    
     func createLargeStuff(smallWidth: Int, smallHeight: Int)
     {
         let largeWidth = smallWidth * collectionRaysPerShadeRayWidth
@@ -136,10 +170,12 @@ class PhotonMapper
         largeTexture = (device.makeTexture(descriptor: textureDescriptor)!)
         
         largeRayBuffer = nil
-        fillBuffer(device: device, buffer: &largeRayBuffer, data: [], size: MemoryLayout<Ray>.stride * largeWidth * largeHeight)
+        fillBuffer(device: device, buffer: &largeRayBuffer, data: [], size: rayStride * largeWidth * largeHeight)
         
         largeIntersectionBuffer = nil
-        fillBuffer(device: device, buffer: &largeIntersectionBuffer, data: [], size: MemoryLayout<Intersection>.stride * largeWidth * largeHeight)
+        fillBuffer(device: device, buffer: &largeIntersectionBuffer, data: [], size: intersectionStride * largeWidth * largeHeight)
+        
+        textureReducer.prepare(startingWidth: largeWidth, startingHeight: largeHeight, timesToReduce: Int(log2(Double(collectionRaysPerShadeRayWidth))))
     }
     
     func generatePhotons()
@@ -210,6 +246,7 @@ class PhotonMapper
         commandEncoder.setComputePipelineState(pttPipelineState)
         commandEncoder.setBuffer(photonBuffer, offset: 0, index: 0)
         commandEncoder.setBuffer(photonVertexBuffer, offset: 0, index: 1)
+        commandEncoder.setBuffer(photonGathererVertexPositionBuffer, offset: 0, index: 3)
         
         threadCountGroup = MTLSize()
         
@@ -227,11 +264,71 @@ class PhotonMapper
         commandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
         commandEncoder.endEncoding()
         
+        commandBuffer.addCompletedHandler({_ in
+            self.generatePhotonGathererAccelerationStructure()
+            })
         commandBuffer.commit()
-
+    }
+    
+    func gatherPhotons(commandBuffer: MTLCommandBuffer, inputRayBuffer: MTLBuffer, inputIntersectionBuffer: MTLBuffer, causticTexture: MTLTexture)
+    {
+        var commandEncoder = commandBuffer.makeComputeCommandEncoder()!
+        
+        commandEncoder.setComputePipelineState(gpgrPipelineState)
+        commandEncoder.setBuffer(inputRayBuffer, offset: 0, index: 0)
+        commandEncoder.setBuffer(inputIntersectionBuffer, offset: 0, index: 1)
+        commandEncoder.setBuffer(vertexBuffer, offset: 0, index: 2)
+        commandEncoder.setBuffer(largeRayBuffer, offset: 0, index: 3)
+        
+        
+        let largeWidth = causticTexture.width * collectionRaysPerShadeRayWidth
+        let largeHeight = causticTexture.height * collectionRaysPerShadeRayWidth
+        var photonUniforms = PhotonUniforms(
+            widthPerRay: uint(collectionRaysPerShadeRayWidth),
+            heightPerRay: uint(collectionRaysPerShadeRayWidth),
+            textureWidth: uint(largeWidth),
+            textureHeight: uint(largeHeight))
+        
+        commandEncoder.setBytes(&photonUniforms, length: MemoryLayout<PhotonUniforms>.stride, index: 4)
+        
+        
+        let threadGroupSize = MTLSizeMake(8, 8, 1)
+        
+        var threadCountGroup = MTLSize()
+        threadCountGroup.width = (largeWidth + threadGroupSize.width - 1) / threadGroupSize.width
+        threadCountGroup.height = (largeHeight + threadGroupSize.height - 1) / threadGroupSize.height
+        threadCountGroup.depth = 1
+        commandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
+        commandEncoder.endEncoding()
+        
+        
+        photonGathererIntersector.intersectionDataType = .distancePrimitiveIndexCoordinates
+        photonGathererIntersector.encodeIntersection(commandBuffer: commandBuffer, intersectionType: .nearest, rayBuffer: largeRayBuffer, rayBufferOffset: 0, intersectionBuffer: largeIntersectionBuffer, intersectionBufferOffset: 0, rayCount: largeHeight * largeWidth, accelerationStructure: photonGathererAccelerationStructure)
+        
+        
+        commandEncoder = commandBuffer.makeComputeCommandEncoder()!
+        
+        commandEncoder.setComputePipelineState(ggtPipelineState)
+        commandEncoder.setBuffer(largeRayBuffer, offset: 0, index: 0)
+        commandEncoder.setBuffer(largeIntersectionBuffer, offset: 0, index: 1)
+        commandEncoder.setBuffer(photonVertexBuffer, offset: 0, index: 2)
+        commandEncoder.setTexture(largeTexture, index: 0)
+        commandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
+        commandEncoder.endEncoding()
+        
+        textureReducer.reduceTexture(commandBuffer: commandBuffer, startTexture: largeTexture, endTexture: causticTexture)
         
         
     }
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     
     

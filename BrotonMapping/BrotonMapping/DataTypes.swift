@@ -123,8 +123,8 @@ struct PhotonUniforms {
     var heightPerRay: uint
     var textureWidth: uint
     var textureHeight: uint
-    var heightAbovePlane: Float
-    var sizeOfPatch: Float
+    var heightAbovePlane: Float = 0.2
+    var sizeOfPatch: Float = patchSize
 }
 
 struct PhotonTriangleUniforms {

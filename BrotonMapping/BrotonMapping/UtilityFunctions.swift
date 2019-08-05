@@ -14,6 +14,7 @@ import MetalPerformanceShaders
 
 let rayStride = 48;
 let intersectionStride = MemoryLayout<MPSIntersectionDistancePrimitiveIndexCoordinates>.stride
+let patchSize: Float = 0.01
 
 // Generic matrix math utility functions
 func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {
@@ -336,7 +337,7 @@ extension Renderer
         cameraPosition = SIMD3<Float>(0.0, -1.0, 1.3)
         cameraDirection = normalize(SIMD3<Float>(0.0, 0.5, -0.85))
         
-        var light1 = Light(position: SIMD3<Float>(0.0, 1.0, 2.0), direction: normalize(SIMD3<Float>(0.0, -1.0, -1.0)), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0, lightType: DIRECTIONAL_LIGHT)
+        var light1 = Light(position: SIMD3<Float>(0.0, 0.5, 2.0), direction: normalize(SIMD3<Float>(0.0, -1.0, -1.0)), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0, lightType: DIRECTIONAL_LIGHT)
         
         let right = normalize(cross(light1.direction, SIMD3<Float>(0, 1, 0)))
         let up = -normalize(cross(right, light1.direction))

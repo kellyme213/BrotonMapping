@@ -169,6 +169,15 @@ class Renderer: NSObject, MTKViewDelegate {
         rayTracer.generateRayBuffer(size: size)
         rayTracer.generateOtherBuffers(size: size)
         rayTracer.numRenders = 0
+        
+        photonMapper.createLargeStuff(smallWidth: Int(size.width), smallHeight: Int(size.height))
+        
+        photonMapper.textureReducer.prepare(
+            startingWidth: Int(size.width) * photonMapper.collectionRaysPerShadeRayWidth,
+            startingHeight: Int(size.height) * photonMapper.collectionRaysPerShadeRayWidth,
+            timesToReduce: Int(log2(Double(photonMapper.collectionRaysPerShadeRayWidth))))
+        
+        //print(rayTracer.causticTexture.width * photonMapper.collectionRaysPerShadeRayWidth, Int(size.width) * photonMapper.collectionRaysPerShadeRayWidth)
         //rayTracer.createCachedTexture(size: size)
     }
     
@@ -210,6 +219,7 @@ class Renderer: NSObject, MTKViewDelegate {
         }
         if (renderMode == RAY_TRACING_MODE || renderMode == PHOTON_MAPPING_MODE)
         {
+            rayTracer.shouldUsePhotonMap = renderMode == PHOTON_MAPPING_MODE
             rayTracer.traceRays(texture: renderView.currentDrawable!.texture, commandBuffer: commandBuffer)
         }
         
