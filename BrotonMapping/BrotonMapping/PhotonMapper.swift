@@ -16,14 +16,15 @@ class PhotonMapper
     var device: MTLDevice!
     
     var collectionRaysPerShadeRayWidth: Int = 4
-    var photonsPerLightWidth: Int = 1024
-    var numPhotonBounces: Int = 2
+    var photonsPerLightWidth: Int = 256
+    var numPhotonBounces: Int = 1
     
     var largeTexture: MTLTexture!
     var largeRayBuffer: MTLBuffer!
     var largeIntersectionBuffer: MTLBuffer!
     
     var photonBuffer: MTLBuffer!
+    var validPhotonBuffer: MTLBuffer!
     
     var smallWidth: Int!
     var smallHeight: Int!
@@ -59,6 +60,7 @@ class PhotonMapper
     
     
     var numPhotons: Int!
+    var numValidPhotons: Int!
     
     var textureReducer: TextureReducer!
 
@@ -80,8 +82,7 @@ class PhotonMapper
         photonBuffer = nil
         fillBuffer(device: device, buffer: &photonBuffer, data: [], size: MemoryLayout<Photon>.stride * numPhotons)
         
-        photonGathererVertexPositionBuffer = nil
-        fillBuffer(device: device, buffer: &photonGathererVertexPositionBuffer, data: [], size: MemoryLayout<SIMD3<Float>>.stride * numPhotons * 3)
+
         
         generatePhotonGeneratorAccelerationStructure()
         
@@ -94,7 +95,7 @@ class PhotonMapper
         fillBuffer(device: device, buffer: &photonGeneratorIntersectionBuffer, data: [], size: intersectionStride * photonsPerLightWidth * photonsPerLightWidth)
 
         
-        fillBuffer(device: device, buffer: &photonVertexBuffer, data: [], size: MemoryLayout<PhotonVertex>.stride * numPhotons * 3)
+
  
         let defaultLibrary = device.makeDefaultLibrary()!
         let prflFunction = defaultLibrary.makeFunction(name: "photonRaysFromLight")!
@@ -151,10 +152,10 @@ class PhotonMapper
         
         photonGathererAccelerationStructure = MPSTriangleAccelerationStructure(device: device)
         photonGathererAccelerationStructure.vertexBuffer = photonGathererVertexPositionBuffer
-        photonGathererAccelerationStructure.triangleCount = numPhotons
+        photonGathererAccelerationStructure.triangleCount = numValidPhotons//numPhotons
         photonGathererAccelerationStructure.rebuild()
         
-        print("Photon map created with " + String(numPhotons) + " photons.")
+        print("Photon map created with " + String(numValidPhotons) + " photons.")
     }
     
     func createLargeStuff(smallWidth: Int, smallHeight: Int)
@@ -166,7 +167,7 @@ class PhotonMapper
         textureDescriptor.height = largeHeight
         textureDescriptor.pixelFormat = .bgra8Unorm
         textureDescriptor.usage = .init(arrayLiteral: [.shaderRead, .shaderWrite])
-        textureDescriptor.storageMode = .managed
+        textureDescriptor.storageMode = .private
         largeTexture = (device.makeTexture(descriptor: textureDescriptor)!)
         
         largeRayBuffer = nil
@@ -176,6 +177,76 @@ class PhotonMapper
         fillBuffer(device: device, buffer: &largeIntersectionBuffer, data: [], size: intersectionStride * largeWidth * largeHeight)
         
         textureReducer.prepare(startingWidth: largeWidth, startingHeight: largeHeight, timesToReduce: Int(log2(Double(collectionRaysPerShadeRayWidth))))
+    }
+    
+    func generateValidPhotons()
+    {
+        var photonPointer = photonBuffer.contents().bindMemory(to: Photon.self, capacity: numPhotons)
+        
+        var validPhotons: [Photon] = []
+        
+        for x in 0..<numPhotons
+        {
+            let photon = photonPointer[x]
+            if length(photon.incomingDirection) > 0.001 && (photon.positon[0] + photon.positon[1] + photon.positon[2]) > -5.9
+            {
+                validPhotons.append(photon)
+            }
+            //p = p.advanced(by: 1)
+        }
+        
+        
+        
+        
+        numValidPhotons = validPhotons.count
+        print("Generated " + String(numPhotons) + " photons.")
+        
+        validPhotonBuffer = nil
+        fillBuffer(device: device, buffer: &validPhotonBuffer, data: validPhotons)
+        
+        photonGathererVertexPositionBuffer = nil
+        fillBuffer(device: device, buffer: &photonGathererVertexPositionBuffer, data: [], size: MemoryLayout<SIMD3<Float>>.stride * numValidPhotons * 3)
+        
+        photonVertexBuffer = nil
+        fillBuffer(device: device, buffer: &photonVertexBuffer, data: [], size: MemoryLayout<PhotonVertex>.stride * numValidPhotons * 3)
+        
+        let commandQueue = device.makeCommandQueue()!
+        
+        let commandBuffer = commandQueue.makeCommandBuffer()!
+        
+        
+        var commandEncoder: MTLComputeCommandEncoder!
+
+        
+        commandEncoder = commandBuffer.makeComputeCommandEncoder()!
+        commandEncoder.setComputePipelineState(pttPipelineState)
+        commandEncoder.setBuffer(validPhotonBuffer, offset: 0, index: 0)
+        commandEncoder.setBuffer(photonVertexBuffer, offset: 0, index: 1)
+        commandEncoder.setBuffer(photonGathererVertexPositionBuffer, offset: 0, index: 3)
+        
+        var threadCountGroup = MTLSize()
+        let threadGroupSize = MTLSizeMake(8, 1, 1)
+
+        
+        let w = numValidPhotons!//Int(sqrt(Double(numValidPhotons)))
+        let h = 1//Int(sqrt(Double(numValidPhotons)))
+
+        threadCountGroup.width = (w + threadGroupSize.width - 1) / threadGroupSize.width
+        threadCountGroup.height = (h + threadGroupSize.height - 1) / threadGroupSize.height
+        threadCountGroup.depth = 1
+        
+        
+        var photonVertexUniforms = PhotonTriangleUniforms(width: uint(w), height: uint(h), radius: 0.001)
+        
+        commandEncoder.setBytes(&photonVertexUniforms, length: MemoryLayout<PhotonTriangleUniforms>.stride, index: 2)
+        commandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
+        commandEncoder.endEncoding()
+        
+        commandBuffer.addCompletedHandler({_ in
+            self.generatePhotonGathererAccelerationStructure()
+        })
+        
+        commandBuffer.commit()        
     }
     
     func generatePhotons()
@@ -214,7 +285,7 @@ class PhotonMapper
             let energyData = Array<Float>.init(repeating: 1.0, count: photonsPerLightWidth * photonsPerLightWidth)
             fillBuffer(device: device, buffer: &energyBuffer, data: energyData)
             
-            for y in 0 ..< numPhotonBounces
+            for y in 0 ..< numPhotonBounces + 1
             {
                 photonGeneratorIntersector.intersectionDataType = .distancePrimitiveIndexCoordinates
                 photonGeneratorIntersector.encodeIntersection(commandBuffer: commandBuffer, intersectionType: .nearest, rayBuffer: photonGeneratorRayBuffer, rayBufferOffset: 0, intersectionBuffer: photonGeneratorIntersectionBuffer, intersectionBufferOffset: 0, rayCount: photonsPerLightWidth * photonsPerLightWidth, accelerationStructure: photonGeneratorAccelerationStructure)
@@ -226,47 +297,30 @@ class PhotonMapper
                 commandEncoder.setBuffer(photonGeneratorIntersectionBuffer, offset: 0, index: 1)
                 commandEncoder.setBuffer(vertexBuffer, offset: 0, index: 2)
                 
-                let offset = x * lightPhotonStride + (MemoryLayout<Photon>.stride * y * photonsPerLightWidth * photonsPerLightWidth)
+                //the easiest way to ignore first intersection is to just overwrite those photons
+                //with first bounce photons.
+                var pretendY: Int = y - 1
+                if pretendY < 0
+                {
+                    pretendY = 0
+                }
                 
-                var offsetNum: uint = 0//uint(offset / MemoryLayout<Photon>.stride)
+                let offset = x * lightPhotonStride + (MemoryLayout<Photon>.stride * pretendY * photonsPerLightWidth * photonsPerLightWidth)
                 
                 
                 commandEncoder.setBuffer(photonBuffer, offset: offset, index: 3)
                 commandEncoder.setBuffer(materialBuffer, offset: 0, index: 4)
                 commandEncoder.setBuffer(energyBuffer, offset: 0, index: 5)
                 commandEncoder.setBytes(&photonUniforms, length: MemoryLayout<PhotonUniforms>.stride, index: 6)
-                commandEncoder.setBytes(&offsetNum, length: MemoryLayout<uint>.stride, index: 7)
                 commandEncoder.setTexture(randomTexture, index: 0)
                 commandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
                 commandEncoder.endEncoding()
             }
         }
         
-        commandEncoder = commandBuffer.makeComputeCommandEncoder()!
-        commandEncoder.setComputePipelineState(pttPipelineState)
-        commandEncoder.setBuffer(photonBuffer, offset: 0, index: 0)
-        commandEncoder.setBuffer(photonVertexBuffer, offset: 0, index: 1)
-        commandEncoder.setBuffer(photonGathererVertexPositionBuffer, offset: 0, index: 3)
-        
-        threadCountGroup = MTLSize()
-        
-        let w = numPhotonBounces * photonsPerLightWidth
-        let h = lights.count * photonsPerLightWidth
-        
-        threadCountGroup.width = (w + threadGroupSize.width - 1) / threadGroupSize.width
-        threadCountGroup.height = (h + threadGroupSize.height - 1) / threadGroupSize.height
-        threadCountGroup.depth = 1
-        
-        
-        var photonVertexUniforms = PhotonTriangleUniforms(width: uint(w), height: uint(h), radius: 0.001)
-        
-        commandEncoder.setBytes(&photonVertexUniforms, length: MemoryLayout<PhotonTriangleUniforms>.stride, index: 2)
-        commandEncoder.dispatchThreadgroups(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
-        commandEncoder.endEncoding()
-        
         commandBuffer.addCompletedHandler({_ in
-            self.generatePhotonGathererAccelerationStructure()
-            })
+            self.generateValidPhotons()
+        })
         commandBuffer.commit()
     }
     

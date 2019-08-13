@@ -119,7 +119,6 @@ generatePhotons(
                 device   Material*        materials            [[buffer(4)]],
                 device   float*           energy               [[buffer(5)]],
                 constant PhotonUniforms&  uniforms             [[buffer(6)]],
-                constant uint&            offset               [[buffer(7)]],
                 texture2d<float, access::read> randTex         [[texture(0)]],
                          uint2            tid                  [[thread_position_in_grid]])
 {
@@ -154,7 +153,7 @@ generatePhotons(
 
             outputPhoton.incomingDirection = inputRay.direction;
             outputPhoton.position = intersectionPosition;
-            outputPhoton.color = energy[inputIndex] * inputRay.color * mat.kDiffuse.xyz;
+            outputPhoton.color = energy[inputIndex] * inputRay.color;// * mat.kDiffuse.xyz;
             outputPhoton.surfaceNormal = intersectionNormal;
             
             //energy[inputIndex] *= mat.absorbiness;
@@ -175,7 +174,7 @@ generatePhotons(
             inputRay.maxDistance = -1.0f;
             outputPhotons[inputIndex].incomingDirection = float3(0.0f, 0.0f, 0.0f);
             outputPhotons[inputIndex].color = float3(0.0f);
-            outputPhotons[inputIndex].position = float3(-10, -10, -10);
+            outputPhotons[inputIndex].position = float3(-2, -2, -2);
             //handle bad photons
         }
         

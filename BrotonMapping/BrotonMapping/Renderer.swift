@@ -214,7 +214,7 @@ class Renderer: NSObject, MTKViewDelegate {
             commandEncoder.setVertexBuffer(photonMapper.photonVertexBuffer, offset: 0, index: 0)
             commandEncoder.setVertexBuffer(uniformBuffer, offset: 0, index: 1)
             
-            commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: photonMapper.numPhotons * 3)
+            commandEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: photonMapper.numValidPhotons * 3)
             commandEncoder.endEncoding()
         }
         if (renderMode == RAY_TRACING_MODE || renderMode == PHOTON_MAPPING_MODE)
