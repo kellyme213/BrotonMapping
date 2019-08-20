@@ -20,7 +20,8 @@ struct PhotonTextureUniforms
     var width: uint
     var height: uint
     var area: Float = patchSize
-    var intensity: Float = 0.05
+    var intensity: Float = 0.01
+    var patchWidth: uint
 }
 
 struct Color
@@ -33,7 +34,8 @@ struct Color
 class TextureReducer
 {
     var device: MTLDevice!
-    var buffers: [MTLBuffer] = []
+    var colorBuffers: [MTLBuffer] = []
+    var countBuffers: [MTLBuffer] = []
     var reductionFactor: Int!
     var timesToReduce: Int!
     var pipelineState: MTLComputePipelineState
@@ -57,7 +59,8 @@ class TextureReducer
     
     func prepare(startingWidth: Int, startingHeight: Int, timesToReduce: Int)
     {
-        buffers.removeAll()
+        colorBuffers.removeAll()
+        countBuffers.removeAll()
         self.timesToReduce = timesToReduce
         reductionFactor = Int(pow(2.0, Float(self.timesToReduce)))
         assert(startingWidth % reductionFactor == 0 && startingHeight % reductionFactor == 0)
@@ -67,33 +70,29 @@ class TextureReducer
         
         for _ in 0 ..< timesToReduce + 1
         {
-            
-            //let textureDescriptor = MTLTextureDescriptor()
-            //textureDescriptor.width = (width)
-            //textureDescriptor.height = (height)
-            //textureDescriptor.pixelFormat = .bgra8Unorm
-            //textureDescriptor.usage = .init(arrayLiteral: [.shaderRead, .shaderWrite])
-            //textureDescriptor.storageMode = .managed
-            //buffers.append(device.makeTexture(descriptor: textureDescriptor)!)
-            
-            
             let buffer = device.makeBuffer(length: width * height * MemoryLayout<Color>.stride, options: .storageModeShared)!
-            buffers.append(buffer)
+            colorBuffers.append(buffer)
+            
+            let buffer2 = device.makeBuffer(length: width * height * MemoryLayout<uint>.stride, options: .storageModeShared)!
+            countBuffers.append(buffer2)
             
             width = width / 2
             height = height / 2
         }
     }
     
-    func reduce(commandBuffer: MTLCommandBuffer, startBuffer: MTLBuffer, endBuffer: MTLBuffer, endWidth: Int, endHeight: Int)
+    func reduce(commandBuffer: MTLCommandBuffer, startBufferIndex: Int, endBufferIndex: Int, endWidth: Int, endHeight: Int)
     {
         let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
         commandEncoder.setComputePipelineState(pipelineState)
-        commandEncoder.setBuffer(startBuffer, offset: 0, index: 0)
-        commandEncoder.setBuffer(endBuffer, offset: 0, index: 1)
+        commandEncoder.setBuffer(colorBuffers[startBufferIndex], offset: 0, index: 0)
+        commandEncoder.setBuffer(colorBuffers[endBufferIndex], offset: 0, index: 1)
         
         var uniform = TextureUniforms(width: uint(endWidth), height: uint(endHeight))
         commandEncoder.setBytes(&uniform, length: MemoryLayout<TextureUniforms>.stride, index: 2)
+        
+        commandEncoder.setBuffer(countBuffers[startBufferIndex], offset: 0, index: 3)
+        commandEncoder.setBuffer(countBuffers[endBufferIndex], offset: 0, index: 4)
         
         let threadGroupSize = MTLSizeMake(1, 1, 1)
         
@@ -119,11 +118,14 @@ class TextureReducer
         
         var commandEncoder = commandBuffer.makeComputeCommandEncoder()!
         commandEncoder.setComputePipelineState(encodeState)
-        commandEncoder.setBuffer(buffers[0], offset: 0, index: 0)
+        commandEncoder.setBuffer(colorBuffers[0], offset: 0, index: 0)
         commandEncoder.setTexture(startTexture, index: 0)
         
         var uniform = TextureUniforms(width: uint(width), height: uint(height))
         commandEncoder.setBytes(&uniform, length: MemoryLayout<TextureUniforms>.stride, index: 1)
+        
+        commandEncoder.setBuffer(countBuffers[0], offset: 0, index: 2)
+
         
         let threadGroupSize = MTLSizeMake(1, 1, 1)
         
@@ -135,23 +137,26 @@ class TextureReducer
         commandEncoder.dispatchThreads(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
         commandEncoder.endEncoding()
         
-        for x in 0 ..< buffers.count - 1
+        for x in 0 ..< colorBuffers.count - 1
         {
-            reduce(commandBuffer: commandBuffer, startBuffer: buffers[x], endBuffer: buffers[x + 1], endWidth: width / 2, endHeight: height / 2)
+            reduce(commandBuffer: commandBuffer, startBufferIndex: x, endBufferIndex: x + 1, endWidth: width / 2, endHeight: height / 2)
             width = width / 2
             height = height / 2
         }
         
         commandEncoder = commandBuffer.makeComputeCommandEncoder()!
         commandEncoder.setComputePipelineState(decodeState)
-        commandEncoder.setBuffer(buffers[buffers.count - 1], offset: 0, index: 0)
+        commandEncoder.setBuffer(colorBuffers[colorBuffers.count - 1], offset: 0, index: 0)
         commandEncoder.setTexture(endTexture, index: 0)
         
         //NOT CORRECT should be PhotonTextureUniforms
-        var photonUniform = PhotonTextureUniforms(width: uint(endTexture.width), height: uint(endTexture.height))
+        var photonUniform = PhotonTextureUniforms(width: uint(endTexture.width), height: uint(endTexture.height), patchWidth: uint(reductionFactor))
         
         //uniform = TextureUniforms(width: uint(width), height: uint(height))
         commandEncoder.setBytes(&photonUniform, length: MemoryLayout<PhotonTextureUniforms>.stride, index: 1)
+        
+        commandEncoder.setBuffer(countBuffers[colorBuffers.count - 1], offset: 0, index: 2)
+
         
         threadCountGroup = MTLSize()
         threadCountGroup.width = (width + threadGroupSize.width - 1) / threadGroupSize.width
@@ -161,26 +166,5 @@ class TextureReducer
         commandEncoder.dispatchThreads(threadCountGroup, threadsPerThreadgroup: threadGroupSize)
         
         commandEncoder.endEncoding()
-        
-        
-        /*
-         
-         
-         if (timesToReduce == 1)
-         {
-         reduce(commandBuffer: commandBuffer, startBuffer: startBuffer, endBuffer: endBuffer)
-         }
-         else
-         {
-         reduce(commandBuffer: commandBuffer, startBuffer: startBuffer, endBuffer: buffers[0])
-         
-         for x in 0 ..< buffers.count - 1
-         {
-         reduce(commandBuffer: commandBuffer, startBuffer: buffers[x], endBuffer: buffers[x + 1])
-         }
-         
-         reduce(commandBuffer: commandBuffer, startBuffer: buffers[buffers.count - 1], endBuffer: endBuffer)
-         }
-         */
     }
 }

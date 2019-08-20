@@ -116,6 +116,7 @@ struct Photon {
     var positon: SIMD3<Float>
     var color: SIMD3<Float>
     var incomingDirection: SIMD3<Float>
+    var surfaceNormal: SIMD3<Float>
 }
 
 struct PhotonUniforms {
@@ -123,7 +124,7 @@ struct PhotonUniforms {
     var heightPerRay: uint
     var textureWidth: uint
     var textureHeight: uint
-    var heightAbovePlane: Float = 0.2
+    var heightAbovePlane: Float = 0.1
     var sizeOfPatch: Float = patchSize
 }
 

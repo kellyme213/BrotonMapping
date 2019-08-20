@@ -16,8 +16,8 @@ class PhotonMapper
     var device: MTLDevice!
     
     var collectionRaysPerShadeRayWidth: Int = 4
-    var photonsPerLightWidth: Int = 256
-    var numPhotonBounces: Int = 1
+    var photonsPerLightWidth: Int = 512
+    var numPhotonBounces: Int = 2
     
     var largeTexture: MTLTexture!
     var largeRayBuffer: MTLBuffer!
@@ -181,18 +181,18 @@ class PhotonMapper
     
     func generateValidPhotons()
     {
-        var photonPointer = photonBuffer.contents().bindMemory(to: Photon.self, capacity: numPhotons)
+        let photonPointer = photonBuffer.contents().bindMemory(to: Photon.self, capacity: numPhotons)
         
         var validPhotons: [Photon] = []
         
         for x in 0..<numPhotons
         {
             let photon = photonPointer[x]
-            if length(photon.incomingDirection) > 0.001 && (photon.positon[0] + photon.positon[1] + photon.positon[2]) > -5.9
+            
+            if length(photon.incomingDirection) > 0.001
             {
                 validPhotons.append(photon)
             }
-            //p = p.advanced(by: 1)
         }
         
         

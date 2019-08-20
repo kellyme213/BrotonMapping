@@ -46,8 +46,8 @@ photonRaysFromLight(constant Light&                light       [[buffer(0)]],
             float2 uv = (float2)pixel / float2(uniforms.textureWidth, uniforms.textureHeight);
             uv = uv * 2.0f - 1.0f;
             
-            float2 rand2 = randTex.read(tid).yz;
-            rand2 = 0.1 * (rand2 * 2.0f - 1.0f);
+            float2 rand2 = randTex.read(tid).zy;
+            rand2 = 0.05 * (rand2 * 2.0f - 1.0f);
             
             ray.origin = light.position + (uv.x * light.right + uv.y * light.up);
             ray.direction = normalize(light.direction + (rand2.x * light.right + rand2.y * light.up));
@@ -87,11 +87,11 @@ photonToTriangle(
         device PhotonVertex& v2 = vertices[3 * photonIndex + 2];
         
         
-        float shouldDraw = (length(photon.incomingDirection) > 0.001f);
+        //float shouldDraw = (length(photon.incomingDirection) > 0.001f);
         
-        p0 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p0;
-        p1 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p1;
-        p2 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p2;
+        //p0 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p0;
+        //p1 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p1;
+        //p2 = (1.0 - shouldDraw) * float3(-10, -10, -10) + shouldDraw * p2;
 
         
         v0.position = float4(p2, 1.0);
@@ -126,7 +126,7 @@ generatePhotons(
     {
         int inputIndex = index(tid, uniforms.textureWidth);
         
-        const device Intersection& inputIntersection = inputIntersections[inputIndex];
+        device Intersection& inputIntersection = inputIntersections[inputIndex];
         device Ray& inputRay = inputRays[inputIndex];
         
         if (inputRay.maxDistance > 0.0f && inputIntersection.distance >= 0.0f)
@@ -263,10 +263,18 @@ generateGatherTexture(
         device Ray& inputRay = inputRays[rayIndex];
         device Intersection& inputIntersection = inputIntersections[rayIndex];
         
+        
+        float didIntersect = (inputIntersection.distance > 0.0f);
+        
         if (inputIntersection.distance > 0.0f)// && inputIntersection.distance <= inputRay.maxDistance)
         {
-            float3 color = inputVertices[3 * inputIntersection.primitiveIndex + 0].color;
+            float3 color = didIntersect * inputVertices[3 * inputIntersection.primitiveIndex + 0].color;
             dstTex.write(float4(color, 1.0), tid);
+        }
+        else
+        {
+            dstTex.write(float4(0.0, 0.0, 0.0, 1.0), tid);
+
         }
     }
 }

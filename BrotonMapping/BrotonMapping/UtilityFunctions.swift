@@ -14,7 +14,7 @@ import MetalPerformanceShaders
 
 let rayStride = 48;
 let intersectionStride = MemoryLayout<MPSIntersectionDistancePrimitiveIndexCoordinates>.stride
-let patchSize: Float = 0.01
+let patchSize: Float = 0.02
 
 // Generic matrix math utility functions
 func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {
@@ -315,7 +315,7 @@ extension Renderer
         m.absorbiness = 0.8
         m.reflectivity = 1.0
         
-        createRing(radius: 0.95, subdivisions: 100, height: 0.1, thiccness: 0.05, material: m, triangles: &triangles)
+        createRing(radius: 0.95, subdivisions: 100, height: 0.4, thiccness: 0.05, material: m, triangles: &triangles)
         
         var m2 = Material()
         m2.kDiffuse = SIMD4<Float>(150.0 / 255.0, 75.0 / 255.0, 0.0, 1.0)
@@ -337,7 +337,7 @@ extension Renderer
         cameraPosition = SIMD3<Float>(0.0, -1.0, 1.3)
         cameraDirection = normalize(SIMD3<Float>(0.0, 0.5, -0.85))
         
-        var light1 = Light(position: SIMD3<Float>(0.0, 0.5, 2.0), direction: normalize(SIMD3<Float>(0.0, -1.0, -1.0)), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0, lightType: DIRECTIONAL_LIGHT)
+        var light1 = Light(position: SIMD3<Float>(0.0, 2.0, 2.0), direction: normalize(SIMD3<Float>(0.0, -1.0, -1.0)), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), coneAngle: 0, lightType: DIRECTIONAL_LIGHT)
         
         let right = normalize(cross(light1.direction, SIMD3<Float>(0, 1, 0)))
         let up = -normalize(cross(right, light1.direction))
@@ -419,8 +419,8 @@ extension Renderer
         let up = -normalize(cross(right, light1.direction))
         
         
-        var light2 = Light(position: SIMD3<Float>(0.0, 0.0, -width / 2.0 + 0.01), color: SIMD4<Float>(10.0, 10.0, 10.0, 1.0), lightType: POINT_LIGHT)
-        light2.direction = normalize(SIMD3<Float>(0.0, 0.0, 1.0))
+        var light2 = Light(position: SIMD3<Float>(0.0, 0.0, -width / 2.0 + 0.01), color: SIMD4<Float>(1.0, 1.0, 1.0, 1.0), lightType: POINT_LIGHT)
+        light2.direction = normalize(SIMD3<Float>(0.1, 0.0, 1.0))
         
         let right2 = normalize(cross(light2.direction, SIMD3<Float>(0.0, 1, 0.0)))
         let up2 = -normalize(cross(right2, light2.direction))
